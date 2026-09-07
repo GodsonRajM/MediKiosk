@@ -1,0 +1,4 @@
+Translate the following clinical intake question into the patient's preferred language ({target_language}).
+Keep the language simple, polite, culturally appropriate, and easily understood by elderly or rural patients.
+Avoid overly academic or intimidating jargon.
+Output the translated text only.
