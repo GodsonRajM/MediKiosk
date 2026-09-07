@@ -1,0 +1,51 @@
+{
+  "_comment": "SYNTHETIC DEMO DATA - Structured OCR & Entity Extraction Representation",
+  "document_id": "33333333-3333-3333-3333-333333333333",
+  "patient_code": "P001",
+  "document_type": "prescription_and_lab",
+  "file_name": "murugan_prescription_feb2026.pdf",
+  "document_date": "2026-02-20",
+  "ocr_text": "APOLLO AYUSH & HEALTH CLINIC\nPatient: Murugan S. (52M) | Date: 20/02/2026\nDx: Essential Hypertension, T2DM (poor control)\nRx:\n1. Tab. Metformin 500mg - 1-0-1 After Food\n2. Tab. Amlodipine 5mg - 1-0-0 Before Breakfast\nLab Results:\n- HbA1c: 8.2% (Ref: < 5.7% Normal, > 6.5% Diabetic)\n- Fasting Blood Sugar: 164 mg/dL (Ref: 70-99 mg/dL)\n- Blood Pressure: 142/90 mmHg\nAdvice: Diet control, brisk walk 20 min, review in 1 month.",
+  "extracted_entities": {
+    "diagnoses": ["Essential Hypertension", "Type 2 Diabetes Mellitus"],
+    "medications": [
+      {
+        "name": "Metformin",
+        "dose": "500 mg",
+        "frequency": "twice daily (1-0-1)",
+        "timing": "After food"
+      },
+      {
+        "name": "Amlodipine",
+        "dose": "5 mg",
+        "frequency": "once daily (1-0-0)",
+        "timing": "Before breakfast"
+      }
+    ],
+    "investigations": [
+      {
+        "test_name": "HbA1c",
+        "result": "8.2",
+        "unit": "%",
+        "reference_range": "< 5.7%",
+        "abnormal": true
+      },
+      {
+        "test_name": "Fasting Blood Sugar",
+        "result": "164",
+        "unit": "mg/dL",
+        "reference_range": "70-99 mg/dL",
+        "abnormal": true
+      },
+      {
+        "test_name": "Blood Pressure",
+        "result": "142/90",
+        "unit": "mmHg",
+        "reference_range": "120/80 mmHg",
+        "abnormal": true
+      }
+    ]
+  },
+  "processing_status": "completed",
+  "confidence": 0.96
+}
