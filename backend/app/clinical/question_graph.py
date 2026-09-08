@@ -1,78 +1,56 @@
-"""
-Clinical Question Graph Engine.
-Governs structured clinical pathways and controls interview question sequencing.
-"""
 import json
 import os
 from typing import Dict, Any, List, Optional
-from app.schemas.question import QuestionResponse, QuestionOption
-
-GRAPH_FILE_PATH = os.path.join(os.path.dirname(__file__), "question_graph.json")
-
+from app.schemas.interview import QuestionResponse
 
 class ClinicalQuestionGraph:
-    def __init__(self, json_path: str = GRAPH_FILE_PATH):
-        with open(json_path, "r", encoding="utf-8") as f:
+    """
+    Deterministic Clinical Question Graph.
+    Governs WHAT to ask and in what sequence; ensures systematic coverage of HPI,
+    Past History, Medications, Allergies, and AYUSH modules.
+    Tracks answered, unanswered, required questions, and contradictions.
+    """
+    def __init__(self):
+        definitions_path = os.path.join(os.path.dirname(__file__), "graph_definitions.json")
+        with open(definitions_path, "r", encoding="utf-8") as f:
             self.data = json.load(f)
-        self.pathways: Dict[str, Any] = self.data.get("pathways", {})
+        self.standard_nodes = self.data["standard_nodes"]
+        self.ayush_nodes = self.data["ayush_nodes"]
 
-    def detect_pathway(self, chief_complaint: str) -> str:
-        """Determines matching pathway based on chief complaint keywords."""
-        complaint = chief_complaint.lower()
-        if any(term in complaint for term in ["chest", "heart", "angina", "discomfort in chest", "நெஞ்சு"]):
-            return "chest_pain"
-        if any(term in complaint for term in ["fever", "temperature", "chills", "காய்ச்சல்", "बुखार"]):
-            return "fever"
-        if any(term in complaint for term in ["cough", "phlegm", "cold", "இருமல்", "खांसी"]):
-            return "cough"
-        if any(term in complaint for term in ["stomach", "abdomen", "belly", "வயிறு", "पेट"]):
-            return "abdominal_pain"
-        if any(term in complaint for term in ["headache", "head pain", "migraine", "தலைவலி", "सिरदर्द"]):
-            return "headache"
-        return "chest_pain"  # Default clinical intake pathway
+    def get_node_list(self, mode: str = "STANDARD") -> List[Dict[str, Any]]:
+        nodes = list(self.standard_nodes)
+        if mode.upper() == "AYUSH":
+            nodes.extend(self.ayush_nodes)
+        return nodes
 
-    def get_pathway(self, pathway_name: str) -> Optional[Dict[str, Any]]:
-        return self.pathways.get(pathway_name)
-
-    def get_next_question(
-        self,
-        pathway_name: str,
-        answered_slots: Dict[str, Any]
-    ) -> Optional[QuestionResponse]:
-        """Finds the next unanswered required slot in the pathway."""
-        pathway = self.get_pathway(pathway_name)
-        if not pathway:
-            return None
-
-        questions = pathway.get("questions", [])
-        for idx, q in enumerate(questions):
-            slot = q.get("slot")
-            if slot not in answered_slots or answered_slots[slot] is None:
-                options = [
-                    QuestionOption(
-                        id=opt["id"],
-                        label=opt["label"],
-                        value=opt["value"],
-                        icon=opt.get("icon")
-                    )
-                    for opt in q.get("options", [])
-                ]
+    def get_next_question(self, answered_ids: List[str], mode: str = "STANDARD", language: str = "en") -> Optional[QuestionResponse]:
+        nodes = self.get_node_list(mode)
+        total_nodes = len(nodes)
+        
+        for idx, node in enumerate(nodes):
+            if node["id"] not in answered_ids:
+                # Select translated text based on language preference
+                if language == "ta" and node.get("question_text_ta"):
+                    q_text = node["question_text_ta"]
+                elif language == "hi" and node.get("question_text_hi"):
+                    q_text = node["question_text_hi"]
+                else:
+                    q_text = node["question_text_en"]
+                    
                 return QuestionResponse(
-                    id=f"{pathway_name}_{q['code']}",
-                    question_code=q["code"],
-                    section=q.get("section", "symptoms"),
-                    question_text=q["text"],
-                    question_type=q["type"],
-                    options=options,
-                    sequence=idx + 1,
-                    required=True,
-                    help_text=q.get("help_text")
+                    question_id=node["id"],
+                    section=node["section"],
+                    question_text=q_text,
+                    question_text_en=node["question_text_en"],
+                    question_text_ta=node.get("question_text_ta"),
+                    question_text_hi=node.get("question_text_hi"),
+                    input_type=node["input_type"],
+                    options=node.get("options", []),
+                    is_required=node.get("is_required", True),
+                    clinical_category=node["clinical_category"],
+                    total_nodes=total_nodes,
+                    current_index=idx + 1
                 )
         return None
-
-    def get_total_questions_count(self, pathway_name: str) -> int:
-        pathway = self.get_pathway(pathway_name)
-        return len(pathway.get("questions", [])) if pathway else 0
-
 
 clinical_graph = ClinicalQuestionGraph()

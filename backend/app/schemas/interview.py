@@ -1,28 +1,29 @@
-"""
-Interview Schemas.
-"""
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
-from app.schemas.question import QuestionResponse
+from pydantic import BaseModel
+from typing import Optional, List, Dict, Any
 
+class QuestionResponse(BaseModel):
+    question_id: str
+    section: str
+    question_text: str
+    question_text_en: str
+    question_text_ta: Optional[str] = None
+    question_text_hi: Optional[str] = None
+    input_type: str  # text, choice, scale, voice
+    options: List[str] = []
+    is_required: bool = True
+    clinical_category: str
+    total_nodes: int = 10
+    current_index: int = 1
 
-class InterviewStart(BaseModel):
-    patient_id: str
-    session_id: Optional[str] = None
-    chief_complaint: str = Field(..., min_length=2)
-    pathway: Optional[str] = None  # e.g. chest_pain, fever, cough
-    language: str = "en"
+class AnswerSubmission(BaseModel):
+    question_id: str
+    answer_text: str
+    input_method: str = "touch"  # voice, touch, keyboard
+    audio_transcript: Optional[str] = None
 
-
-class InterviewStateResponse(BaseModel):
-    id: str
-    patient_id: str
-    chief_complaint: str
-    status: str  # started, in_progress, completed
-    current_section: str
-    pathway: str
-    completed_questions_count: int
-    total_estimated_questions: int
-    next_question: Optional[QuestionResponse] = None
-    red_flags_detected: List[Dict[str, Any]] = []
-    is_completed: bool = False
+class EntityExtractionResult(BaseModel):
+    entity_type: str
+    entity_name: str
+    attributes: Dict[str, Any] = {}
+    source: str = "PATIENT_INTERVIEW"
+    confidence: float = 0.95

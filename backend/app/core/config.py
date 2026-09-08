@@ -1,58 +1,46 @@
-"""
-Application Configuration Settings.
-Loads environment variables and validates them using Pydantic Settings.
-"""
+from pydantic_settings import BaseSettings
 from typing import List
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
-
+import os
 
 class Settings(BaseSettings):
-    # App Information
     PROJECT_NAME: str = "MediKiosk"
-    PROJECT_ID: str = "SIH26047"
     VERSION: str = "1.0.0"
-    API_V1_PREFIX: str = "/api/v1"
+    API_V1_STR: str = "/api/v1"
     
-    # Environment & Modes
     ENVIRONMENT: str = "development"
-    DEBUG: bool = True
     DEMO_MODE: bool = True
+    DEBUG: bool = True
     
-    # Server Binding
     HOST: str = "0.0.0.0"
     PORT: int = 8000
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8000"
+    ]
     
-    # CORS
-    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
-    
-    @property
-    def cors_origins_list(self) -> List[str]:
-        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
-
-    # Security
-    SECRET_KEY: str = "medikiosk-development-secret-key-change-in-production"
+    SECRET_KEY: str = "medikiosk-secure-jwt-development-secret-key-sih2026"
+    ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     SESSION_TIMEOUT_MINUTES: int = 30
     
-    # Supabase (Database, Auth, Storage)
+    # Supabase credentials (optional for mock/in-memory mode)
     SUPABASE_URL: str = ""
-    SUPABASE_SERVICE_ROLE_KEY: str = ""
+    SUPABASE_SECRET_KEY: str = ""
     SUPABASE_ANON_KEY: str = ""
     
-    # AI Services
-    AI_PROVIDER: str = "mock"  # 'gemini' or 'mock'
+    # AI Provider: "mock" or "gemini"
+    AI_PROVIDER: str = "mock"
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-1.5-flash"
     
-    # Storage
-    STORAGE_BUCKET_DOCUMENTS: str = "patient-documents"
-
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore"
-    )
-
+    # Interoperability Modes: "mock" or "real"
+    ABDM_MODE: str = "mock"
+    FHIR_MODE: str = "mock"
+    
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+        extra = "allow"
 
 settings = Settings()

@@ -1,46 +1,35 @@
-"""
-Patient Schemas.
-"""
-from datetime import date, datetime
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr
+from typing import Optional, List
 
+class PatientIdentifierSchema(BaseModel):
+    id: Optional[str] = None
+    identifier_type: str
+    identifier_value: str
+    issuing_system: str = "MediKiosk"
+    verified: bool = True
 
-class PatientBase(BaseModel):
-    name: str = Field(..., min_length=2, max_length=100)
-    date_of_birth: Optional[date] = None
-    age: Optional[int] = Field(None, ge=0, le=130)
-    gender: Optional[str] = Field(None, pattern="^(male|female|other|undisclosed)$")
-    phone: Optional[str] = None
-    abha_id: Optional[str] = None
-    preferred_language: str = Field(default="en", min_length=2, max_length=10)
+class PatientCreate(BaseModel):
+    full_name: str
+    date_of_birth: Optional[str] = None
+    age: Optional[int] = None
+    gender: str
+    phone: str
+    email: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    preferred_language: str = "en"
+    abha_number: Optional[str] = None
 
-
-class PatientCreate(PatientBase):
-    patient_code: Optional[str] = None  # If not provided, auto-generated
-
-
-class PatientUpdate(BaseModel):
-    name: Optional[str] = None
-    phone: Optional[str] = None
-    preferred_language: Optional[str] = None
-    abha_id: Optional[str] = None
-
-
-class PatientResponse(PatientBase):
+class PatientResponse(BaseModel):
     id: str
-    patient_code: str
-    created_at: str
-    updated_at: str
-
-
-class PatientSummaryCard(BaseModel):
-    id: str
-    patient_code: str
-    name: str
-    age: Optional[int]
-    gender: Optional[str]
-    chief_complaint: Optional[str] = None
-    red_flag_count: int = 0
-    high_severity_flag: bool = False
-    status: str = "waiting"
+    medikiosk_id: str
+    full_name: str
+    date_of_birth: Optional[str] = None
+    age: Optional[int] = None
+    gender: str
+    phone: str
+    email: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    preferred_language: str
+    identifiers: List[PatientIdentifierSchema] = []

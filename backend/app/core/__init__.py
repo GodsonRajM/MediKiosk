@@ -1,1 +1,0 @@
-# MediKiosk Core Package
