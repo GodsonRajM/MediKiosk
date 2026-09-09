@@ -27,6 +27,8 @@ export const EmergencyAccessCard: React.FC = () => {
   const [editMode, setEditMode] = useState(false);
   const [bloodGroup, setBloodGroup] = useState("");
   const [emergencyContact, setEmergencyContact] = useState("");
+  const [hostMode, setHostMode] = useState<"wifi" | "localhost" | "custom">("wifi");
+  const [customHost, setCustomHost] = useState("192.168.1.179:3000");
 
   useEffect(() => {
     loadSettings();
@@ -81,8 +83,15 @@ export const EmergencyAccessCard: React.FC = () => {
     }
   };
 
+  const getBaseOrigin = () => {
+    if (typeof window === "undefined") return "";
+    if (hostMode === "wifi") return `http://${customHost}`;
+    if (hostMode === "custom") return customHost.startsWith("http") ? customHost : `http://${customHost}`;
+    return window.location.origin;
+  };
+
   const publicUrl = typeof window !== "undefined" && data?.token
-    ? `${window.location.origin}/emergency/${data.token}`
+    ? `${getBaseOrigin()}/emergency/${data.token}`
     : "";
 
   const handleCopyLink = () => {
@@ -167,6 +176,69 @@ export const EmergencyAccessCard: React.FC = () => {
               alt="Emergency Medical QR Code"
               className="w-48 h-48 rounded-xl object-contain"
             />
+          </div>
+
+          {/* QR Target Host Switcher (for mobile phone camera scan) */}
+          <div className="w-full bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-left space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                QR Target (for Phone Scan)
+              </span>
+              <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">
+                Wi-Fi Ready
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-1">
+              <button
+                type="button"
+                onClick={() => setHostMode("wifi")}
+                className={`py-1 px-1 rounded-lg text-[10px] font-bold transition-all text-center ${
+                  hostMode === "wifi"
+                    ? "bg-rose-600 text-white shadow-sm"
+                    : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600"
+                }`}
+              >
+                Wi-Fi IP
+              </button>
+              <button
+                type="button"
+                onClick={() => setHostMode("localhost")}
+                className={`py-1 px-1 rounded-lg text-[10px] font-bold transition-all text-center ${
+                  hostMode === "localhost"
+                    ? "bg-rose-600 text-white shadow-sm"
+                    : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600"
+                }`}
+              >
+                Localhost
+              </button>
+              <button
+                type="button"
+                onClick={() => setHostMode("custom")}
+                className={`py-1 px-1 rounded-lg text-[10px] font-bold transition-all text-center ${
+                  hostMode === "custom"
+                    ? "bg-rose-600 text-white shadow-sm"
+                    : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600"
+                }`}
+              >
+                Custom
+              </button>
+            </div>
+            {hostMode !== "localhost" && (
+              <input
+                type="text"
+                value={customHost}
+                onChange={(e) => setCustomHost(e.target.value)}
+                placeholder="192.168.1.179:3000"
+                className="w-full text-[11px] font-mono p-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-rose-500"
+              />
+            )}
+            <p className="text-[10px] text-slate-400 leading-tight">
+              {hostMode === "wifi"
+                ? "Phone & laptop must be on same Wi-Fi network."
+                : hostMode === "localhost"
+                ? "For browsing directly on this laptop only."
+                : "Enter your public domain or cloud URL."}
+            </p>
           </div>
 
           <p className="text-[11px] text-slate-500 max-w-xs">
