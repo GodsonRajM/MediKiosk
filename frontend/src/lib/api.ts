@@ -1,6 +1,22 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+export function getApiBase(): string {
+  if (typeof window !== "undefined") {
+    const custom = localStorage.getItem("medikiosk_api_url");
+    if (custom) return custom.replace(/\/$/, "");
+
+    const hostname = window.location.hostname;
+    // When accessed from a phone browser over Wi-Fi (e.g. 192.168.x.x)
+    if (hostname && hostname !== "localhost" && hostname !== "127.0.0.1") {
+      return `http://${hostname}:8000/api/v1`;
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+}
 
 export class ApiService {
+  public static getBaseUrl(): string {
+    return getApiBase();
+  }
+
   private static getToken(): string | null {
     if (typeof window !== "undefined") {
       return localStorage.getItem("medikiosk_token");
@@ -35,7 +51,8 @@ export class ApiService {
       headers["Content-Type"] = "application/json";
     }
 
-    const res = await fetch(`${API_BASE}${endpoint}`, {
+    const baseUrl = this.getBaseUrl();
+    const res = await fetch(`${baseUrl}${endpoint}`, {
       ...options,
       headers,
     });

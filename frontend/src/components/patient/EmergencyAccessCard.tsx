@@ -32,6 +32,9 @@ export const EmergencyAccessCard: React.FC = () => {
 
   useEffect(() => {
     loadSettings();
+    if (typeof window !== "undefined" && window.location.hostname && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+      setCustomHost(window.location.host);
+    }
   }, []);
 
   const loadSettings = async () => {
