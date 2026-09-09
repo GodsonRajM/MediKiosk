@@ -25,6 +25,7 @@ export default function PublicEmergencyClient({ initialToken }: EmergencyClientP
   const params = useParams();
   const token = (params?.token as string) || initialToken || "";
 
+  const [resolvedToken, setResolvedToken] = useState<string>(token);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,9 +38,20 @@ export default function PublicEmergencyClient({ initialToken }: EmergencyClientP
   useEffect(() => {
     let activeToken = token;
     if (!activeToken && typeof window !== "undefined") {
-      const parts = window.location.pathname.split("/").filter(Boolean);
-      activeToken = parts[parts.length - 1] || "";
+      const searchParams = new URLSearchParams(window.location.search);
+      const queryTok = searchParams.get("token");
+      if (queryTok) {
+        activeToken = queryTok;
+      } else {
+        const parts = window.location.pathname.split("/").filter(Boolean);
+        const lastPart = parts[parts.length - 1] || "";
+        if (lastPart && lastPart !== "emergency") {
+          activeToken = lastPart;
+        }
+      }
     }
+
+    setResolvedToken(activeToken);
 
     if (activeToken) {
       loadProfile(activeToken);
@@ -61,7 +73,8 @@ export default function PublicEmergencyClient({ initialToken }: EmergencyClientP
   };
 
   const handleTriggerSOS = () => {
-    if (!token) return;
+    const tok = resolvedToken || token;
+    if (!tok) return;
     setSosLoading(true);
     setSosError(null);
 
@@ -69,22 +82,23 @@ export default function PublicEmergencyClient({ initialToken }: EmergencyClientP
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          sendSOS(pos.coords.latitude, pos.coords.longitude);
+          sendSOS(pos.coords.latitude, pos.coords.longitude, tok);
         },
         () => {
-          sendSOS(undefined, undefined);
+          sendSOS(undefined, undefined, tok);
         },
-        { timeout: 5000 }
+        { timeout: 5000, enableHighAccuracy: true }
       );
     } else {
-      sendSOS(undefined, undefined);
+      sendSOS(undefined, undefined, tok);
     }
   };
 
-  const sendSOS = async (lat?: number, lng?: number) => {
+  const sendSOS = async (lat?: number, lng?: number, activeTok?: string) => {
     try {
+      const tok = activeTok || resolvedToken || token;
       const res = await ApiService.triggerEmergencySOS({
-        token,
+        token: tok,
         latitude: lat,
         longitude: lng,
         note: "Emergency SOS triggered by bystander/responder from mobile portal"

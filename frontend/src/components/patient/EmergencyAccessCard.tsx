@@ -94,7 +94,7 @@ export const EmergencyAccessCard: React.FC = () => {
   };
 
   const publicUrl = typeof window !== "undefined" && data?.token
-    ? `${getBaseOrigin()}/emergency/${data.token}`
+    ? `${getBaseOrigin()}/emergency/?token=${data.token}`
     : "";
 
   const handleCopyLink = () => {

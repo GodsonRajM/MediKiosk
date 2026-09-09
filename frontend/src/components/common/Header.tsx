@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useApp } from "@/lib/AppContext";
 import { Language } from "@/lib/translations";
+import { ServerConfigModal } from "./ServerConfigModal";
 import { 
   Activity, 
   Sun, 
@@ -10,7 +11,8 @@ import {
   Globe, 
   LogOut, 
   User as UserIcon,
-  ShieldCheck
+  ShieldCheck,
+  Server
 } from "lucide-react";
 
 interface HeaderProps {
@@ -20,6 +22,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, showSidebarToggle }) => {
   const { user, theme, setTheme, language, setLanguage, t, logout } = useApp();
+  const [serverModalOpen, setServerModalOpen] = useState(false);
 
   const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setLanguage(e.target.value as Language);
@@ -85,6 +88,15 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, showSidebarTogg
             {theme === "light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4 text-amber-400" />}
           </button>
 
+          {/* Server Config Toggle */}
+          <button
+            onClick={() => setServerModalOpen(true)}
+            className="p-2 rounded-lg text-medgrey-500 dark:text-medgrey-400 hover:bg-medgrey-100 dark:hover:bg-medgrey-800 transition-colors"
+            title="Configure Backend Server URL"
+          >
+            <Server className="w-4 h-4 text-medblue-600 dark:text-medblue-400" />
+          </button>
+
           {/* User Badge & Logout */}
           {user && (
             <div className="flex items-center gap-2.5 pl-2 border-l border-medgrey-200 dark:border-medgrey-700">
@@ -109,6 +121,11 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, showSidebarTogg
         </div>
 
       </div>
+
+      <ServerConfigModal 
+        isOpen={serverModalOpen} 
+        onClose={() => setServerModalOpen(false)} 
+      />
     </header>
   );
 };

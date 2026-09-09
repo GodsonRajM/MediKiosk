@@ -1,7 +1,22 @@
+export function isCapacitorApp(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    Boolean((window as any).Capacitor?.isNativePlatform?.()) ||
+    window.location.protocol === "capacitor:" ||
+    (typeof navigator !== "undefined" && /capacitor/i.test(navigator.userAgent)) ||
+    (window.location.hostname === "localhost" && typeof window.origin !== "undefined" && window.origin.startsWith("https://localhost"))
+  );
+}
+
 export function getApiBase(): string {
   if (typeof window !== "undefined") {
     const custom = localStorage.getItem("medikiosk_api_url");
-    if (custom) return custom.replace(/\/$/, "");
+    if (custom) return custom.trim().replace(/\/$/, "");
+
+    // If running inside Capacitor APK on mobile device, localhost:8000 points to the phone (where no server runs)
+    if (isCapacitorApp()) {
+      return "http://192.168.1.179:8000/api/v1";
+    }
 
     const hostname = window.location.hostname;
     // When accessed from a phone browser over Wi-Fi (e.g. 192.168.x.x)
@@ -10,6 +25,46 @@ export function getApiBase(): string {
     }
   }
   return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+}
+
+export function setApiBase(url: string): void {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("medikiosk_api_url", url.trim().replace(/\/$/, ""));
+  }
+}
+
+export async function testApiConnection(url: string): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    let cleanUrl = url.trim().replace(/\/$/, "");
+    if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
+      cleanUrl = `http://${cleanUrl}`;
+    }
+    const target = cleanUrl.endsWith("/api/v1") 
+      ? `${cleanUrl}/health` 
+      : cleanUrl.includes("/api/v1") 
+      ? cleanUrl 
+      : `${cleanUrl}/api/v1/health`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(target, { 
+      method: "GET", 
+      headers: { Accept: "application/json" },
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      return { success: true, data };
+    }
+    return { success: false, error: `HTTP ${res.status}: ${res.statusText}` };
+  } catch (err: any) {
+    if (err.name === "AbortError") {
+      return { success: false, error: "Connection timed out. Check IP and Wi-Fi." };
+    }
+    return { success: false, error: err.message || "Network unreachable" };
+  }
 }
 
 export class ApiService {

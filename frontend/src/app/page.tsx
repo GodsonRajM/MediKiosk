@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/lib/AppContext";
-import { ApiService } from "@/lib/api";
+import { ApiService, getApiBase } from "@/lib/api";
 import { Header } from "@/components/common/Header";
+import { ServerConfigModal } from "@/components/common/ServerConfigModal";
 import { 
   Activity, 
   ShieldCheck, 
@@ -17,7 +18,8 @@ import {
   Stethoscope,
   ArrowRight,
   CheckCircle2,
-  HelpCircle
+  HelpCircle,
+  Server
 } from "lucide-react";
 
 export default function LoginPage() {
@@ -75,6 +77,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newlyCreatedId, setNewlyCreatedId] = useState<string | null>(null);
+  const [serverModalOpen, setServerModalOpen] = useState(false);
+  const [activeApiUrl, setActiveApiUrl] = useState("");
+
+  useEffect(() => {
+    setActiveApiUrl(getApiBase());
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,7 +101,12 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       console.error("Login error:", err);
-      setError(err.message || "Invalid credentials. Please verify your ID and password.");
+      const msg = err.message || "";
+      if (msg.includes("fetch") || msg.includes("NetworkError") || msg.includes("Failed to fetch")) {
+        setError(`Unable to connect to backend (${activeApiUrl || getApiBase()}). Tap "Configure Server" below to connect to your laptop Wi-Fi.`);
+      } else {
+        setError(msg || "Invalid credentials. Please verify your ID and password.");
+      }
     } finally {
       setLoading(false);
     }
@@ -146,7 +159,12 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       console.error("Signup error:", err);
-      setError(err.message || "Failed to create account. Please check your details.");
+      const msg = err.message || "";
+      if (msg.includes("fetch") || msg.includes("NetworkError") || msg.includes("Failed to fetch")) {
+        setError(`Unable to connect to backend (${activeApiUrl || getApiBase()}). Tap "Configure Server" below to connect to your laptop Wi-Fi.`);
+      } else {
+        setError(msg || "Failed to create account. Please check your details.");
+      }
     } finally {
       setLoading(false);
     }
@@ -248,9 +266,21 @@ export default function LoginPage() {
 
             {/* Error Feedback */}
             {error && (
-              <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-400 text-xs font-medium flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                {error}
+              <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-400 text-xs font-medium space-y-2.5">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span className="flex-1 leading-relaxed">{error}</span>
+                </div>
+                {(error.includes("backend") || error.includes("Server") || error.includes("connect") || error.includes("fetch")) && (
+                  <button
+                    type="button"
+                    onClick={() => setServerModalOpen(true)}
+                    className="w-full py-1.5 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <Server className="w-3.5 h-3.5" />
+                    Configure Backend Server IP
+                  </button>
+                )}
               </div>
             )}
 
@@ -567,10 +597,32 @@ export default function LoginPage() {
               </form>
             )}
 
+            {/* Server Connection Status Bar */}
+            <div className="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
+              <span className="flex items-center gap-1.5 font-mono truncate max-w-[200px]" title={activeApiUrl}>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                <span className="truncate">{activeApiUrl ? activeApiUrl.replace(/\/api\/v1\/?$/, "") : "http://192.168.1.179:8000"}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setServerModalOpen(true)}
+                className="text-blue-600 dark:text-blue-400 font-bold hover:underline flex items-center gap-1 shrink-0"
+              >
+                <Server className="w-3.5 h-3.5" />
+                Configure IP
+              </button>
+            </div>
+
           </div>
 
         </div>
       </main>
+
+      <ServerConfigModal
+        isOpen={serverModalOpen}
+        onClose={() => setServerModalOpen(false)}
+        onSaved={(url) => setActiveApiUrl(url)}
+      />
     </div>
   );
 }
