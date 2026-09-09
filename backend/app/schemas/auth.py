@@ -25,7 +25,7 @@ class DoctorSignupRequest(BaseModel):
     consent_accepted: bool = Field(..., description="Mandatory consent for clinical protocol oversight")
 
 class LoginRequest(BaseModel):
-    identifier: str = Field(..., description="Patient ID (MK-XXXXXX), Doctor ID (DK-XXXXXX), or registered Email")
+    identifier: str = Field(..., description="Patient ID (PS######), Doctor ID (DR######), or registered Email")
     name: Optional[str] = None
     password: str = Field(..., min_length=1)
 

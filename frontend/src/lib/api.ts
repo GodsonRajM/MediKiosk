@@ -41,7 +41,18 @@ export class ApiService {
     });
 
     if (!res.ok) {
-      let errorMsg = `HTTP Error ${res.status}`;
+      if (res.status === 401) {
+        if (
+          typeof window !== "undefined" &&
+          !endpoint.includes("/auth/login") &&
+          !endpoint.includes("/auth/patient/signup") &&
+          !endpoint.includes("/auth/doctor/signup")
+        ) {
+          this.removeToken();
+          window.dispatchEvent(new CustomEvent("medikiosk_auth_expired", { detail: { endpoint } }));
+        }
+      }
+      let errorMsg = res.status === 401 ? "Your session has expired. Please log in again." : `HTTP Error ${res.status}`;
       try {
         const errorData = await res.json();
         if (typeof errorData === "string") {
@@ -223,5 +234,51 @@ export class ApiService {
       method: "POST",
       body: JSON.stringify({ summary_id: summaryId, notes }),
     });
+  }
+
+  // Emergency Medical Portal & SOS
+  static async getEmergencySettings() {
+    return this.request<any>("/emergency/settings");
+  }
+
+  static async toggleEmergencyAccess(data: {
+    is_enabled: boolean;
+    blood_group?: string;
+    emergency_contact?: string;
+    special_instructions?: string;
+  }) {
+    return this.request<any>("/emergency/toggle", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async getPublicEmergencyView(token: string) {
+    return this.request<any>(`/emergency/view/${token}`);
+  }
+
+  static async triggerEmergencySOS(data: {
+    token: string;
+    latitude?: number;
+    longitude?: number;
+    note?: string;
+  }) {
+    return this.request<any>("/emergency/sos", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async getTriageAlerts() {
+    return this.request<any[]>("/emergency/triage-alerts");
+  }
+
+  // Admin Portal & Operational Analytics
+  static async getSystemMetrics() {
+    return this.request<any>("/admin/metrics");
+  }
+
+  static async getAuditLogs() {
+    return this.request<any[]>("/admin/audit-logs");
   }
 }

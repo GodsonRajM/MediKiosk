@@ -9,12 +9,13 @@ import {
   Settings, 
   LogOut,
   X,
-  Stethoscope
+  Stethoscope,
+  ShieldAlert
 } from "lucide-react";
 
 interface SidebarProps {
-  activeTab: "home" | "profile" | "history" | "settings";
-  onSelectTab: (tab: "home" | "profile" | "history" | "settings") => void;
+  activeTab: "home" | "profile" | "history" | "settings" | "emergency";
+  onSelectTab: (tab: "home" | "profile" | "history" | "settings" | "emergency") => void;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -31,6 +32,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: "home", label: t.home, icon: Home },
     { id: "profile", label: t.profile, icon: User },
     { id: "history", label: t.history, icon: Clock },
+    { id: "emergency", label: "Emergency QR", icon: ShieldAlert },
     { id: "settings", label: t.settings, icon: Settings },
   ] as const;
 
@@ -75,7 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {user.name}
                 </p>
                 <p className="text-[11px] font-mono text-medblue-600 dark:text-medblue-400">
-                  {user.medikiosk_id || "MK-PATIENT"}
+                  {user.medikiosk_id || user.doctor_id || user.formatted_id || "PATIENT"}
                 </p>
               </div>
             </div>

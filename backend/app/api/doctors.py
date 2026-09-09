@@ -90,8 +90,10 @@ def search_patients(
         pid_row = db.select_one("patient_identifiers", {"profile_id": p["id"]})
         mk_id = pid_row["medikiosk_id"].lower() if pid_row else ""
         name = p["full_name"].lower()
+        clean_q = q.replace("-", "")
+        clean_mk = mk_id.replace("-", "")
 
-        if q in mk_id or q in name:
+        if q in mk_id or clean_q in clean_mk or q in name:
             # Check if this doctor is authorized for this patient
             is_authorized = db.select_one("doctor_patient_relationships", {
                 "doctor_id": doctor_id,

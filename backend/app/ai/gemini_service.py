@@ -139,6 +139,12 @@ class GeminiClinicalService:
             "current_medications": [medications] if medications and medications != "None" else [],
             "allergies": prev_allergies if prev_allergies else [allergies],
             "uploaded_document_findings": docs_summary if docs_summary else ["No documents uploaded for this intake"],
+            "ayush_assessment": {
+                "prakriti": ans_dict.get("q_ayush_prakriti", "Not assessed"),
+                "agni": ans_dict.get("q_ayush_agni", "Not assessed"),
+                "koshtha": ans_dict.get("q_ayush_koshtha", "Not assessed"),
+                "nidra_vihara": ans_dict.get("q_ayush_nidra", "Not assessed")
+            },
             "clinical_notice": "AI prepares the case; the doctor owns the clinical decision. Not a diagnostic formulation."
         }
 

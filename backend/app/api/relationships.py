@@ -20,6 +20,10 @@ def connect_doctor(payload: DoctorConnectRequest, current_user: dict = Depends(g
     if payload.doctor_identifier:
         clean_dk = payload.doctor_identifier.strip().upper()
         doc_id_row = db.select_one("doctor_identifiers", {"doctor_id": clean_dk})
+        if not doc_id_row and "-" in clean_dk:
+            doc_id_row = db.select_one("doctor_identifiers", {"doctor_id": clean_dk.replace("-", "")})
+        elif not doc_id_row and not "-" in clean_dk and len(clean_dk) == 8:
+            doc_id_row = db.select_one("doctor_identifiers", {"doctor_id": f"{clean_dk[:2]}-{clean_dk[2:]}"})
         if doc_id_row:
             doctor_profile = db.select_one("profiles", {"id": doc_id_row["profile_id"]})
     
@@ -34,7 +38,7 @@ def connect_doctor(payload: DoctorConnectRequest, current_user: dict = Depends(g
     if not doctor_profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Doctor not found. Please verify the Doctor ID (DK-XXXXXX) or Doctor Name."
+            detail="Doctor not found. Please verify the Doctor ID (e.g. DR123456) or Doctor Name."
         )
 
     doctor_id = doctor_profile["id"]

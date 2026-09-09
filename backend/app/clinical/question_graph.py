@@ -137,6 +137,210 @@ CLINICAL_QUESTIONS: List[QuestionNode] = [
             "ta": "தற்போது வழக்கமாக ஏதேனும் மருந்துகள் எடுத்துக்கொள்கிறீர்களா? பெயர்களைக் குறிப்பிடவும் அல்லது 'இல்லை' என எழுதவும்.",
             "hi": "क्या आप वर्तमान में कोई नियमित दवाएं ले रहे हैं? कृपया नाम लिखें या 'कोई नहीं' लिखें।"
         }
+    ),
+
+    # 8. AYUSH Dashavidha: Baseline Constitution (Prakriti)
+    QuestionNode(
+        id="q_ayush_prakriti",
+        section="AYUSH Dashavidha Assessment",
+        question_type="single_choice",
+        clinical_field="ayush_prakriti",
+        text={
+            "en": "AYUSH Assessment: Which best describes your physical body tendency and climate sensitivity?",
+            "kn": "ಆಯುಷ್ ಮೌಲ್ಯಮಾಪನ: ನಿಮ್ಮ ಶಾರೀರಿಕ ಪ್ರಕೃತಿ ಮತ್ತು ಹವಾಮಾನ ಸೂಕ್ಷ್ಮತೆಯನ್ನು ಯಾವುದು ಉತ್ತಮವಾಗಿ ವಿವರಿಸುತ್ತದೆ?",
+            "ta": "ஆயுஷ் மதிப்பீடு: உங்கள் உடல்வாகு மற்றும் தட்பவெப்பநிலை உணர்திறனை எது சிறப்பாக விவரிக்கிறது?",
+            "hi": "आयुष मूल्यांकन: आपके शरीर की प्रकृति और मौसम के प्रति संवेदनशीलता का सबसे अच्छा वर्णन क्या है?"
+        },
+        options=[
+            QuestionOption(
+                id="opt_prakriti_vata",
+                label={
+                    "en": "Vata: Lean build, dry skin/hair, sensitive to cold/wind, quick active mind",
+                    "kn": "ವಾತ: ತೆಳ್ಳಗಿನ ಮೈಕಟ್ಟು, ಒಣ ಚರ್ಮ, ಚಳಿಗೆ ಸೂಕ್ಷ್ಮತೆ, ಸದಾ ಚಟುವಟಿಕೆಯುಳ್ಳ ಮನಸ್ಸು",
+                    "ta": "வாதம்: மெலிந்த உடல், வறண்ட தோல், குளிருக்கு உணர்திறன், சுறுசுறுப்பான மனம்",
+                    "hi": "वात: पतला शरीर, रूखी त्वचा, ठंड से संवेदनशीलता, चंचल मन"
+                },
+                value="vata"
+            ),
+            QuestionOption(
+                id="opt_prakriti_pitta",
+                label={
+                    "en": "Pitta: Medium build, sensitive to heat/sun, sharp appetite, warm body",
+                    "kn": "ಪಿತ್ತ: ಮಧ್ಯಮ ಮೈಕಟ್ಟು, ಬಿಸಿಲಿಗೆ ಸೂಕ್ಷ್ಮತೆ, ತೀಕ್ಷ್ಣ ಹಸಿವು, ಬೆಚ್ಚಗಿನ ದೇಹ",
+                    "ta": "பித்தம்: நடுத்தர உடல், வெப்பம்/சூரிய ஒளிக்கு உணர்திறன், தீவிர பசி",
+                    "hi": "पित्त: मध्यम डील-डौल, गर्मी/धूप बर्दाश्त न होना, तेज भूख, गर्म शरीर"
+                },
+                value="pitta"
+            ),
+            QuestionOption(
+                id="opt_prakriti_kapha",
+                label={
+                    "en": "Kapha: Broad/sturdy build, smooth oily skin, calm temperament, slow digestion",
+                    "kn": "ಕಫ: ಗಟ್ಟಿಮುಟ್ಟಾದ ಮೈಕಟ್ಟು, ಮೃದು ಚರ್ಮ, ಶಾಂತ ಸ್ವಭಾವ, ನಿಧಾನ ಜೀರ್ಣಕ್ರಿಯೆ",
+                    "ta": "கபம்: திடமான உடல், மிருதுவான தோல், அமைதியான குணம், மெதுவான செரிமானம்",
+                    "hi": "कफ: भारी/मजबूत शरीर, चिकनी त्वचा, शांत स्वभाव, धीमी पाचन क्रिया"
+                },
+                value="kapha"
+            ),
+            QuestionOption(
+                id="opt_prakriti_mixed",
+                label={
+                    "en": "Dvandvaja / Sama: Balanced traits or combination of two doshas",
+                    "kn": "ದ್ವಂದ್ವಜ / ಸಮ: ಸಮತೋಲಿತ ಲಕ್ಷಣಗಳು ಅಥವಾ ಎರಡು ಪ್ರಕೃತಿಗಳ ಮಿಶ್ರಣ",
+                    "ta": "துவந்த்வஜ / சம: சமநிலையான அல்லது இரு தோஷங்களின் கலவை",
+                    "hi": "द्वंद्वज / सम: संतुलित लक्षण या दो दोषों का सम्मिश्रण"
+                },
+                value="dvandvaja"
+            )
+        ]
+    ),
+
+    # 9. AYUSH Dashavidha: Digestive Capacity (Agni / Ahara Shakti)
+    QuestionNode(
+        id="q_ayush_agni",
+        section="AYUSH Dashavidha Assessment",
+        question_type="single_choice",
+        clinical_field="ayush_agni",
+        text={
+            "en": "AYUSH Assessment: How is your digestive appetite and post-meal comfort (Agni)?",
+            "kn": "ಆಯುಷ್ ಮೌಲ್ಯಮಾಪನ: ನಿಮ್ಮ ಜೀರ್ಣಶಕ್ತಿ ಮತ್ತು ಊಟದ ನಂತರದ ಸ್ಥಿತಿ (ಅಗ್ನಿ) ಹೇಗಿದೆ?",
+            "ta": "ஆயுஷ் மதிப்பீடு: உங்கள் செரிமானத் திறன் மற்றும் உணவுக்குப் பிந்தைய உணர்வு (அக்னி) எப்படி உள்ளது?",
+            "hi": "आयुष मूल्यांकन: आपकी पाचन क्षमता और भोजन के बाद का अनुभव (अग्नि) कैसा रहता है?"
+        },
+        options=[
+            QuestionOption(
+                id="opt_agni_sama",
+                label={
+                    "en": "Samagni: Balanced digestion, regular healthy hunger, light after eating",
+                    "kn": "ಸಮಾಗ್ನಿ: ಸಮತೋಲಿತ ಜೀರ್ಣಕ್ರಿಯೆ, ಸರಿಯಾದ ಹಸಿವು, ಊಟದ ನಂತರ ಆರಾಮ",
+                    "ta": "சமாக்னி: சீரான செரிமானம், சரியான பசி, சாப்பிட்ட பிறகு லேசான உணர்வு",
+                    "hi": "समाग्नि: संतुलित पाचन, समय पर भूख, भोजन के बाद हल्कापन"
+                },
+                value="samagni"
+            ),
+            QuestionOption(
+                id="opt_agni_manda",
+                label={
+                    "en": "Mandagni: Sluggish digestion, feeling heavy/bloated for hours after meals",
+                    "kn": "ಮಂದಾಗ್ನಿ: ನಿಧಾನ ಜೀರ್ಣಕ್ರಿಯೆ, ಊಟದ ನಂತರ ಹೊಟ್ಟೆ ಭಾರ ಮತ್ತು ಉಬ್ಬರ",
+                    "ta": "மந்தாக்னி: மந்தமான செரிமானம், சாப்பிட்ட பின் நீண்ட நேரம் வயிறு கனமாக இருத்தல்",
+                    "hi": "मंदाग्नि: कमजोर पाचन, खाने के बाद कई घंटों तक भारीपन या पेट फूलना"
+                },
+                value="mandagni"
+            ),
+            QuestionOption(
+                id="opt_agni_tikshna",
+                label={
+                    "en": "Tikshnagni: Sharp/excessive hunger, acidity, burning sensation or heartburn",
+                    "kn": "ತೀಕ್ಷ್ಣಾಗ್ನಿ: ಅತಿಯಾದ ತೀವ್ರ ಹಸಿವು, ಅಸಿಡಿಟಿ, ಎದೆಯುರಿ",
+                    "ta": "தீக்ஷ்ணாக்னி: அதிகப்படியான பசி, நெஞ்செரிச்சல் அல்லது அமிலத்தன்மை",
+                    "hi": "तीक्ष्णाग्नि: अत्यधिक तेज भूख, एसिडिटी, सीने या पेट में जलन"
+                },
+                value="tikshnagni"
+            ),
+            QuestionOption(
+                id="opt_agni_vishama",
+                label={
+                    "en": "Vishamagni: Irregular digestion, unpredictable appetite, bloating and gas",
+                    "kn": "ವಿಷಮಾಗ್ನಿ: ಅನಿಶ್ಚಿತ ಜೀರ್ಣಕ್ರಿಯೆ, ಒಮ್ಮೊಮ್ಮೆ ಹಸಿವು, ಗ್ಯಾಸ್ಟ್ರಿಕ್ ಮತ್ತು ವಾಯು",
+                    "ta": "விஷமாக்னி: ஒழுங்கற்ற செரிமானம், கணிக்க முடியாத பசி, வாயுத்தொல்லை",
+                    "hi": "विषमाग्नि: अनियमित पाचन, कभी तेज भूख कभी बिल्कुल नहीं, गैस व पेट फूलना"
+                },
+                value="vishamagni"
+            )
+        ]
+    ),
+
+    # 10. AYUSH Dashavidha: Bowel Habit & Elimination (Koshtha)
+    QuestionNode(
+        id="q_ayush_koshtha",
+        section="AYUSH Dashavidha Assessment",
+        question_type="single_choice",
+        clinical_field="ayush_koshtha",
+        text={
+            "en": "AYUSH Assessment: What is your typical bowel elimination pattern (Koshtha)?",
+            "kn": "ಆಯುಷ್ ಮೌಲ್ಯಮಾಪನ: ನಿಮ್ಮ ಕರುಳಿನ ಮಲವಿಸರ್ಜನಾ ಅಭ್ಯಾಸ (ಕೋಷ್ಠ) ಹೇಗಿದೆ?",
+            "ta": "ஆயுஷ் மதிப்பீடு: உங்கள் குடல் கழிவு வெளியேற்ற வழக்கம் (கோஷ்டா) எப்படி உள்ளது?",
+            "hi": "आयुष मूल्यांकन: आपका पेट साफ होने / मल त्याग का स्वभाव (कोष्ठ) कैसा है?"
+        },
+        options=[
+            QuestionOption(
+                id="opt_koshtha_madhyama",
+                label={
+                    "en": "Madhyama Koshtha: Normal, effortless daily bowel evacuation",
+                    "kn": "ಮಧ್ಯಮ ಕೋಷ್ಠ: ಪ್ರತಿದಿನ ಸುಲಭವಾಗಿ ಸರಾಗ ಮಲವಿಸರ್ಜನೆ",
+                    "ta": "மத்யம கோஷ்டா: சிரமமின்றி தினசரி சீரான மலம் கழித்தல்",
+                    "hi": "मध्यम कोष्ठ: सामान्य, प्रतिदिन बिना परेशानी पेट साफ होना"
+                },
+                value="madhyama"
+            ),
+            QuestionOption(
+                id="opt_koshtha_krura",
+                label={
+                    "en": "Krura Koshtha: Hard stools, strain, prone to dry constipation",
+                    "kn": "ಕ್ರೂರ ಕೋಷ್ಠ: ಗಟ್ಟಿ ಮಲ, ಮಲಬದ್ಧತೆ ಮತ್ತು ತೊಂದರೆ",
+                    "ta": "க்ரூர கோஷ்டா: கடினமான மலம், மலச்சிக்கல் ஏற்படும் தன்மை",
+                    "hi": "क्रूर कोष्ठ: कड़ा मल, कब्ज की शिकायत, जोर लगाना पड़ना"
+                },
+                value="krura"
+            ),
+            QuestionOption(
+                id="opt_koshtha_mridu",
+                label={
+                    "en": "Mridu Koshtha: Soft or loose stools, easily stimulated by milk/fruits",
+                    "kn": "ಮೃದು ಕೋಷ್ಠ: ಮೃದುವಾದ ಅಥವಾ ಸಡಿಲ ಮಲ, ಹಾಲು ಅಥವಾ ಹಣ್ಣು ತಿಂದರೆ ತಕ್ಷಣ ವಿಸರ್ಜನೆ",
+                    "ta": "மிருது கோஷ்டா: மென்மையான அல்லது தளர்வான மலம், எளிதில் மலம் கழிதல்",
+                    "hi": "मृदु कोष्ठ: नरम या पतला मल, दूध या फल लेने से भी तुरंत पेट साफ होना"
+                },
+                value="mridu"
+            )
+        ]
+    ),
+
+    # 11. AYUSH Vihara: Sleep Quality (Nidra)
+    QuestionNode(
+        id="q_ayush_nidra",
+        section="AYUSH Dashavidha Assessment",
+        question_type="single_choice",
+        clinical_field="ayush_nidra",
+        text={
+            "en": "AYUSH Assessment: How is your nightly sleep pattern and morning refreshment (Nidra)?",
+            "kn": "ಆಯುಷ್ ಮೌಲ್ಯಮಾಪನ: ನಿಮ್ಮ ನಿದ್ರೆಯ ಮಾದರಿ ಮತ್ತು ಬೆಳಗಿನ ಚೈತನ್ಯ ಹೇಗಿದೆ?",
+            "ta": "ஆயுஷ் மதிப்பீடு: உங்கள் இரவு தூக்கம் மற்றும் காலையில் புத்துணர்ச்சி எப்படி உள்ளது?",
+            "hi": "आयुष मूल्यांकन: आपकी रात की नींद और सुबह का तरोताजापन (निद्रा) कैसा रहता है?"
+        },
+        options=[
+            QuestionOption(
+                id="opt_nidra_sukha",
+                label={
+                    "en": "Sound, restorative 7-8 hours sleep; wake up refreshed",
+                    "kn": "ಆರಾಮದಾಯಕ ೭-೮ ಗಂಟೆಗಳ ನಿದ್ರೆ; ಬೆಳಿಗ್ಗೆ ಚೈತನ್ಯದಾಯಕ ಅನುಭವ",
+                    "ta": "ஆழ்ந்த, புத்துணர்ச்சியூட்டும் 7-8 மணி நேர தூக்கம்",
+                    "hi": "गहरी, आरामदायक 7-8 घंटे की नींद; सुबह ताजगी महसूस होना"
+                },
+                value="restorative_sound"
+            ),
+            QuestionOption(
+                id="opt_nidra_alpa",
+                label={
+                    "en": "Disturbed / interrupted sleep, difficulty falling asleep, insomnia",
+                    "kn": "ಅಡಚಣೆಯುಳ್ಳ ನಿದ್ರೆ, ನಿದ್ರೆ ಬಾರದಿರುವುದು ಅಥವಾ ಬೇಗ ಎಚ್ಚರವಾಗುವುದು",
+                    "ta": "இடையூறு தூக்கம், தூங்குவதில் சிரமம், தூக்கமின்மை",
+                    "hi": "टूटी-फूटी नींद, देर से नींद आना, अनिद्रा या बेचैनी"
+                },
+                value="interrupted_insomnia"
+            ),
+            QuestionOption(
+                id="opt_nidra_ati",
+                label={
+                    "en": "Excessive heavy sleep, morning lethargy, daytime drowsiness (Tandra)",
+                    "kn": "ಅತಿಯಾದ ನಿದ್ರೆ, ಬೆಳಿಗ್ಗೆ ಆಲಸ್ಯ, ಹಗಲು ನಿದ್ದೆ",
+                    "ta": "அதிகப்படியான தூக்கம், காலையில் சோம்பல், பகல் தூக்கம்",
+                    "hi": "अत्यधिक नींद, सुबह भारीपन व सुस्ती, दिन में ऊंघना (तन्द्रा)"
+                },
+                value="excessive_lethargy"
+            )
+        ]
     )
 ]
 

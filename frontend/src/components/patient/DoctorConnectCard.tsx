@@ -47,8 +47,10 @@ export const DoctorConnectCard: React.FC<DoctorConnectCardProps> = ({ onStartInt
     setLoading(true);
     setError(null);
     try {
-      const targetId = doctorId || (searchInput.startsWith("DK-") ? searchInput : undefined);
-      const targetName = docName || (!searchInput.startsWith("DK-") ? searchInput : undefined);
+      const cleanInput = searchInput.trim();
+      const isId = cleanInput.toUpperCase().startsWith("DR") || cleanInput.toUpperCase().startsWith("DK-");
+      const targetId = doctorId || (isId ? cleanInput.toUpperCase() : undefined);
+      const targetName = docName || (!isId ? cleanInput : undefined);
 
       const res = await ApiService.connectDoctor(targetId, targetName);
       setConnection(res.doctor);

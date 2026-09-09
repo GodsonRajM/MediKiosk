@@ -74,7 +74,7 @@ export const PatientSearchBar: React.FC<PatientSearchBarProps> = ({ onSelectPati
 
           {results.length === 0 ? (
             <div className="p-6 rounded-2xl bg-white dark:bg-medgrey-800 text-center text-xs text-medgrey-500 border border-medgrey-200 dark:border-medgrey-700">
-              No patients found matching &quot;{query}&quot;. Verify Patient Name or MK-XXXXXX ID.
+              No patients found matching &quot;{query}&quot;. Verify Patient Name or PS123456 ID.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

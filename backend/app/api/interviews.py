@@ -174,15 +174,19 @@ def submit_answer(payload: AnswerSubmissionRequest, current_user: dict = Depends
         db.insert("medical_summaries", summary_record)
 
         # Update medical timeline
-        db.insert("medical_timeline", {
-            "patient_id": patient_id,
-            "event_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-            "event_type": "Clinical Intake Summary",
-            "title": f"OPD Case Prepared: {summary_content.get('chief_complaint')}",
-            "description": "Comprehensive pre-consultation case-taking completed via MediKiosk AI.",
-            "source": "summary",
-            "source_id": summary_id
-        })
+        try:
+            db.insert("medical_timeline", {
+                "id": str(uuid.uuid4()),
+                "patient_id": patient_id,
+                "event_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                "event_type": "Clinical Intake Summary",
+                "title": f"OPD Case Prepared: {summary_content.get('chief_complaint')}",
+                "description": "Comprehensive pre-consultation case-taking completed via MediKiosk AI.",
+                "source": "summary",
+                "source_id": summary_id
+            })
+        except Exception:
+            pass
 
         return {
             "session_id": payload.session_id,

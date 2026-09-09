@@ -85,6 +85,8 @@ class MediKioskDatabase:
             "patients": []
         }
         self._counters = {
+            "PS": 0,
+            "DR": 0,
             "MK": 0,
             "DK": 0
         }
@@ -92,15 +94,17 @@ class MediKioskDatabase:
     def get_next_id(self, prefix: str) -> str:
         """
         Atomically generates genuinely unique identifiers via Supabase RPC:
-        Patient: MK-000001, MK-000002...
-        Doctor:  DK-000001, DK-000002...
+        Patient: PS000001, PS000002... (PS + exactly 6 digits)
+        Doctor:  DR000001, DR000002... (DR + exactly 6 digits)
         """
         prefix = prefix.upper()
         if self.supabase_client:
             try:
                 rpc_res = self.supabase_client.rpc("get_next_formatted_id", {"p_prefix": prefix}).execute()
                 if rpc_res.data:
-                    return rpc_res.data
+                    # Format as prefix + 6 digits without hyphen (e.g. PS000001, DR000001)
+                    clean_id = str(rpc_res.data).replace("-", "").strip()
+                    return clean_id
             except Exception as e:
                 print(f"[Database] Warning: Failed RPC get_next_formatted_id: {e}")
 
@@ -109,7 +113,7 @@ class MediKioskDatabase:
             if prefix not in self._counters:
                 self._counters[prefix] = 0
             self._counters[prefix] += 1
-            return f"{prefix}-{self._counters[prefix]:06d}"
+            return f"{prefix}{self._counters[prefix]:06d}"
 
     def insert(self, table: str, record: Dict[str, Any]) -> Dict[str, Any]:
         """

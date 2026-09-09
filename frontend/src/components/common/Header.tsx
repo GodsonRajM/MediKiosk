@@ -50,9 +50,6 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, showSidebarTogg
             <div>
               <span className="text-xl font-bold tracking-tight text-medgrey-900 dark:text-white flex items-center gap-1.5">
                 {t.appName}
-                <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-medblue-50 dark:bg-medblue-950/60 text-medblue-600 dark:text-medblue-400 border border-medblue-200 dark:border-medblue-800">
-                  SIH26047
-                </span>
               </span>
               <p className="text-[11px] text-medgrey-500 dark:text-medgrey-400 hidden sm:block">
                 {t.tagline}

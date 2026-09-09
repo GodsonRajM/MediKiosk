@@ -35,6 +35,16 @@ export default function LoginPage() {
     }
   }, [user, router]);
 
+  // Check for expired session redirect
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("expired") === "1") {
+        setError("Your session has expired for your security. Please sign in again.");
+      }
+    }
+  }, []);
+
   // Tab State: 'patient' | 'doctor'
   const [activeTab, setActiveTab] = useState<"patient" | "doctor">("patient");
   // Mode: 'login' | 'signup' | 'forgot'
@@ -175,7 +185,7 @@ export default function LoginPage() {
               {t.appName}
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-              Smart India Hackathon 2026 • SIH26047 (Ministry of Ayush)
+              Pre-Consultation Clinical Intake & OPD Case Preparation
               <br />
               <span className="italic">&quot;AI prepares the case; the doctor owns the clinical decision.&quot;</span>
             </p>
@@ -258,7 +268,7 @@ export default function LoginPage() {
                       required
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder={activeTab === "patient" ? "e.g. MK-000001 or Email" : "e.g. DK-000001 or Email"}
+                      placeholder={activeTab === "patient" ? "e.g. PS123456 or Email" : "e.g. DR123456 or Email"}
                       className="health-input pl-10 text-xs py-2.5"
                     />
                   </div>

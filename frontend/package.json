@@ -5,10 +5,15 @@
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
+    "build:export": "set NEXT_EXPORT=true&& next build",
+    "cap:sync": "npx cap sync android",
     "start": "next start -p 3000",
     "lint": "next lint"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/cli": "^8.5.1",
+    "@capacitor/core": "^8.5.1",
     "@supabase/supabase-js": "^2.116.0",
     "clsx": "^2.1.0",
     "lucide-react": "^0.359.0",

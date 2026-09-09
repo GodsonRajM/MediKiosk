@@ -10,11 +10,13 @@ from app.api.relationships import router as relationships_router
 from app.api.interviews import router as interviews_router
 from app.api.documents import router as documents_router
 from app.api.summaries import router as summaries_router
+from app.api.emergency import router as emergency_router
+from app.api.admin import router as admin_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="Pre-consultation, AI-assisted patient case-taking system (SIH26047 - Ministry of Ayush)",
+    description="Pre-consultation, AI-assisted patient case-taking system",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -43,6 +45,8 @@ app.include_router(relationships_router, prefix=api_v1_prefix)
 app.include_router(interviews_router, prefix=api_v1_prefix)
 app.include_router(documents_router, prefix=api_v1_prefix)
 app.include_router(summaries_router, prefix=api_v1_prefix)
+app.include_router(emergency_router, prefix=api_v1_prefix)
+app.include_router(admin_router, prefix=api_v1_prefix)
 
 @app.get("/")
 def root():

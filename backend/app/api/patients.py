@@ -65,6 +65,7 @@ def add_patient_history(payload: MedicalHistoryCreate, current_user: dict = Depe
 
     # Automatically add to patient's medical timeline
     timeline_item = {
+        "id": str(uuid.uuid4()),
         "patient_id": user_id,
         "event_date": date_rec,
         "event_type": payload.category.capitalize(),
@@ -73,7 +74,10 @@ def add_patient_history(payload: MedicalHistoryCreate, current_user: dict = Depe
         "source": "history",
         "source_id": rec_id
     }
-    db.insert("medical_timeline", timeline_item)
+    try:
+        db.insert("medical_timeline", timeline_item)
+    except Exception:
+        pass
 
     return rec
 

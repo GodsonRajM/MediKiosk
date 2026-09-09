@@ -75,8 +75,8 @@ def register_patient(payload: PatientSignupRequest):
     else:
         auth_uid = str(uuid.uuid4())
 
-    # Step 2: Atomically generate sequential Patient ID (MK-XXXXXX)
-    medikiosk_id = db.get_next_id("MK")
+    # Step 2: Atomically generate sequential Patient ID (PS + 6 digits, e.g. PS000001)
+    patient_id = db.get_next_id("PS")
 
     # Step 3: Transactional Database Persistence
     try:
@@ -100,7 +100,7 @@ def register_patient(payload: PatientSignupRequest):
         # 3b. Insert Patient Identifier
         id_record = {
             "profile_id": auth_uid,
-            "medikiosk_id": medikiosk_id
+            "medikiosk_id": patient_id
         }
         db.insert("patient_identifiers", id_record)
 
@@ -151,7 +151,9 @@ def register_patient(payload: PatientSignupRequest):
         "sub": auth_uid,
         "email": payload.email.lower(),
         "role": "patient",
-        "medikiosk_id": medikiosk_id,
+        "patient_id": patient_id,
+        "medikiosk_id": patient_id,
+        "formatted_id": patient_id,
         "name": payload.full_name
     }
     token = create_access_token(token_payload)
@@ -222,8 +224,8 @@ def register_doctor(payload: DoctorSignupRequest):
     else:
         auth_uid = str(uuid.uuid4())
 
-    # Step 2: Atomically generate sequential Doctor ID (DK-XXXXXX)
-    doctor_id = db.get_next_id("DK")
+    # Step 2: Atomically generate sequential Doctor ID (DR + 6 digits, e.g. DR000001)
+    doctor_id = db.get_next_id("DR")
 
     # Step 3: Transactional Database Persistence
     try:
@@ -291,6 +293,7 @@ def register_doctor(payload: DoctorSignupRequest):
         "email": payload.email.lower(),
         "role": "doctor",
         "doctor_id": doctor_id,
+        "formatted_id": doctor_id,
         "name": payload.full_name
     }
     token = create_access_token(token_payload)
@@ -305,7 +308,8 @@ def register_doctor(payload: DoctorSignupRequest):
 @router.post("/login", response_model=AuthTokenResponse)
 def login_user(payload: LoginRequest):
     """
-    Authenticates Patient or Doctor using Patient ID (MK-XXXXXX), Doctor ID (DK-XXXXXX), or Email.
+    Authenticates Patient or Doctor using Patient ID (PS######), Doctor ID (DR######), or Email.
+    Supports backward-compatible lookup.
     Enforces password verification and active mandatory consent.
     """
     ident = payload.identifier.strip()
@@ -314,16 +318,32 @@ def login_user(payload: LoginRequest):
     formatted_id = None
 
     try:
-        if ident.upper().startswith("MK-"):
-            # Look up by Patient ID
+        clean_upper = ident.upper().replace("-", "")
+        if ident.upper().startswith("PS") or ident.upper().startswith("MK"):
+            # Look up by Patient ID (supports PS######, PS-######, MK-######)
             id_row = db.select_one("patient_identifiers", {"medikiosk_id": ident.upper()})
+            if not id_row:
+                id_row = db.select_one("patient_identifiers", {"medikiosk_id": clean_upper})
+            if not id_row and ident.upper().startswith("PS") and len(clean_upper) > 2:
+                # Try with hyphen just in case
+                id_row = db.select_one("patient_identifiers", {"medikiosk_id": f"PS-{clean_upper[2:]}"})
+            if not id_row and ident.upper().startswith("MK") and len(clean_upper) > 2:
+                id_row = db.select_one("patient_identifiers", {"medikiosk_id": f"MK-{clean_upper[2:]}"})
+                
             if id_row:
                 profile = db.select_one("profiles", {"id": id_row["profile_id"]})
                 formatted_id = id_row["medikiosk_id"]
                 role = "patient"
-        elif ident.upper().startswith("DK-"):
-            # Look up by Doctor ID
+        elif ident.upper().startswith("DR") or ident.upper().startswith("DK"):
+            # Look up by Doctor ID (supports DR######, DR-######, DK-######)
             id_row = db.select_one("doctor_identifiers", {"doctor_id": ident.upper()})
+            if not id_row:
+                id_row = db.select_one("doctor_identifiers", {"doctor_id": clean_upper})
+            if not id_row and ident.upper().startswith("DR") and len(clean_upper) > 2:
+                id_row = db.select_one("doctor_identifiers", {"doctor_id": f"DR-{clean_upper[2:]}"})
+            if not id_row and ident.upper().startswith("DK") and len(clean_upper) > 2:
+                id_row = db.select_one("doctor_identifiers", {"doctor_id": f"DK-{clean_upper[2:]}"})
+
             if id_row:
                 profile = db.select_one("profiles", {"id": id_row["profile_id"]})
                 formatted_id = id_row["doctor_id"]
@@ -376,6 +396,7 @@ def login_user(payload: LoginRequest):
         "formatted_id": formatted_id
     }
     if profile["role"] == "patient":
+        user_info["patient_id"] = formatted_id
         user_info["medikiosk_id"] = formatted_id
     elif profile["role"] == "doctor":
         user_info["doctor_id"] = formatted_id
@@ -436,6 +457,7 @@ def get_current_profile(current_user: dict = Depends(get_current_user)):
     
     if clean_profile.get("role") == "patient":
         pid = db.select_one("patient_identifiers", {"profile_id": user_id})
+        clean_profile["patient_id"] = pid["medikiosk_id"] if pid else None
         clean_profile["medikiosk_id"] = pid["medikiosk_id"] if pid else None
     elif clean_profile.get("role") == "doctor":
         did = db.select_one("doctor_identifiers", {"profile_id": user_id})

@@ -10,6 +10,7 @@ import { ClinicalIntakeGraph } from "@/components/patient/ClinicalIntakeGraph";
 import { ProfileEditor } from "@/components/patient/ProfileEditor";
 import { MedicalHistoryManager } from "@/components/patient/MedicalHistoryManager";
 import { DocumentUploader } from "@/components/patient/DocumentUploader";
+import { EmergencyAccessCard } from "@/components/patient/EmergencyAccessCard";
 import { 
   Home, 
   User, 
@@ -20,7 +21,8 @@ import {
   Globe, 
   ShieldCheck,
   Stethoscope,
-  FileUp
+  FileUp,
+  ShieldAlert
 } from "lucide-react";
 import { Language } from "@/lib/translations";
 
@@ -29,7 +31,7 @@ export default function PatientPortalPage() {
   const { user, theme, setTheme, language, setLanguage, t, isLoading } = useApp();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"home" | "profile" | "history" | "settings">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "profile" | "history" | "emergency" | "settings">("home");
   const [intakeActive, setIntakeActive] = useState(false);
 
   // Authentication protection
@@ -122,7 +124,12 @@ export default function PatientPortalPage() {
             </div>
           )}
 
-          {/* TAB 4: SETTINGS */}
+          {/* TAB 4: EMERGENCY QR */}
+          {activeTab === "emergency" && (
+            <EmergencyAccessCard />
+          )}
+
+          {/* TAB 5: SETTINGS */}
           {activeTab === "settings" && (
             <div className="health-card p-6 sm:p-8 space-y-6">
               <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">

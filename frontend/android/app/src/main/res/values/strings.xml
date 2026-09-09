@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MediKiosk</string>
+    <string name="title_activity_main">MediKiosk</string>
+    <string name="package_name">com.medikiosk.app</string>
+    <string name="custom_url_scheme">com.medikiosk.app</string>
+</resources>

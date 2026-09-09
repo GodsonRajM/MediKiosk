@@ -4,7 +4,7 @@ import { AppProvider } from "@/lib/AppContext";
 
 export const metadata: Metadata = {
   title: "MediKiosk — Pre-Consultation AI Case Taking",
-  description: "Smart India Hackathon 2026 (SIH26047 - Ministry of Ayush). AI prepares the case; the doctor owns the clinical decision.",
+  description: "AI prepares the case; the doctor owns the clinical decision. Automated clinical pre-consultation and intake system.",
 };
 
 export default function RootLayout({

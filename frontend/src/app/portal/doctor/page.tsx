@@ -133,7 +133,7 @@ export default function DoctorPortalPage() {
                 <EmptyState
                   icon={Users}
                   title="No Patients Connected"
-                  description="Patients who connect to your Doctor ID (DK-XXXXXX) at the kiosk will appear in this real-time queue."
+                  description="Patients who connect to your Doctor ID (DR123456) at the kiosk will appear in this real-time queue."
                 />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

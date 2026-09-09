@@ -50,14 +50,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       document.documentElement.classList.remove("dark");
     }
 
-    if (savedUser) {
+    const token = localStorage.getItem("medikiosk_token");
+    if (savedUser && token) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsed = JSON.parse(savedUser);
+        setUser(parsed);
+        ApiService.getMe()
+          .then((me) => {
+            const updatedUser: User = {
+              sub: me.id,
+              email: me.email,
+              role: me.role,
+              name: me.full_name,
+              medikiosk_id: me.medikiosk_id,
+              doctor_id: me.doctor_id,
+              formatted_id: me.medikiosk_id || me.doctor_id,
+            };
+            setUser(updatedUser);
+            localStorage.setItem("medikiosk_user", JSON.stringify(updatedUser));
+          })
+          .catch((err) => {
+            if (err?.message?.includes("expired") || err?.message?.includes("401")) {
+              setUser(null);
+              ApiService.removeToken();
+            }
+          });
       } catch {
-        // ignore
+        setUser(null);
+        ApiService.removeToken();
       }
+    } else {
+      setUser(null);
     }
     setIsLoading(false);
+  }, []);
+
+  // Listen for auth expiration events from ApiService
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      setUser(null);
+      ApiService.removeToken();
+      if (typeof window !== "undefined" && window.location.pathname !== "/") {
+        window.location.href = "/?expired=1";
+      }
+    };
+
+    window.addEventListener("medikiosk_auth_expired", handleAuthExpired);
+    return () => window.removeEventListener("medikiosk_auth_expired", handleAuthExpired);
   }, []);
 
   const setTheme = (newTheme: "light" | "dark") => {
