@@ -1,196 +1,227 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
-export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('medikiosk_token') : null;
-  
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string> || {}),
-  };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+export class ApiService {
+  private static getToken(): string | null {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("medikiosk_token");
+    }
+    return null;
   }
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: 'Network request failed' }));
-    throw new Error(errorData.detail || `Request failed with status ${response.status}`);
+  public static setToken(token: string) {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("medikiosk_token", token);
+    }
   }
 
-  return response.json();
-}
+  public static removeToken() {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("medikiosk_token");
+      localStorage.removeItem("medikiosk_user");
+    }
+  }
 
-export const api = {
-  // Authentication & Registration
-  registerPatient: (data: any) =>
-    fetchApi<any>('/auth/register/patient', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  private static async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const token = this.getToken();
+    const headers: Record<string, string> = {
+      ...(options.headers as Record<string, string>),
+    };
 
-  registerDoctor: (data: any) =>
-    fetchApi<any>('/auth/register/doctor', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
 
-  login: (identifier: string, password: string, expected_role?: string) =>
-    fetchApi<any>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ identifier, password, expected_role }),
-    }),
+    if (!(options.body instanceof FormData)) {
+      headers["Content-Type"] = "application/json";
+    }
 
-  forgotPassword: (identifier: string, new_password: string) =>
-    fetchApi<any>('/auth/forgot-password', {
-      method: 'POST',
-      body: JSON.stringify({ identifier, new_password }),
-    }),
-
-  googleAuth: (payload: { email: string; name?: string; role?: string }) =>
-    fetchApi<any>('/auth/google', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
-
-  verifyOtp: (phone: string, otp_code: string) =>
-    fetchApi<any>('/auth/otp/verify', {
-      method: 'POST',
-      body: JSON.stringify({ phone, otp_code }),
-    }),
-
-  getMe: () => fetchApi<any>('/auth/me'),
-
-  // Doctors
-  getDoctors: () => fetchApi<any[]>('/doctors'),
-  searchDoctors: (q: string) => fetchApi<any[]>(`/doctors/search?q=${encodeURIComponent(q)}`),
-  connectDoctor: (patient_id: string, doctor_id: string) =>
-    fetchApi<any>('/doctors/connect', {
-      method: 'POST',
-      body: JSON.stringify({ patient_id, doctor_id }),
-    }),
-
-  // Patients
-  getPatient: (id: string) => fetchApi<any>(`/patients/${id}`),
-  updatePatient: (id: string, data: any) =>
-    fetchApi<any>(`/patients/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-  searchPatients: (q: string) => fetchApi<any[]>(`/patients/search?q=${encodeURIComponent(q)}`),
-
-  // Medical History CRUD (Scans, Prescriptions, Lab Tests)
-  getPatientHistory: (patient_id: string) =>
-    fetchApi<any[]>(`/patients/${patient_id}/history`),
-
-  createPatientHistory: (patient_id: string, record: any) =>
-    fetchApi<any>(`/patients/${patient_id}/history`, {
-      method: 'POST',
-      body: JSON.stringify(record),
-    }),
-
-  deletePatientHistory: (patient_id: string, record_id: string) =>
-    fetchApi<any>(`/patients/${patient_id}/history/${record_id}`, {
-      method: 'DELETE',
-    }),
-
-  // File Upload with OCR
-  uploadDocumentFile: async (patient_id: string, file: File, doc_type: string = 'LAB_REPORT', session_id?: string) => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('medikiosk_token') : null;
-    const formData = new FormData();
-    formData.append('patient_id', patient_id);
-    formData.append('doc_type', doc_type);
-    if (session_id) formData.append('session_id', session_id);
-    formData.append('file', file);
-
-    const headers: Record<string, string> = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
-    const res = await fetch(`${API_BASE}/documents/upload`, {
-      method: 'POST',
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
       headers,
-      body: formData,
     });
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
-      throw new Error(err.detail || `Upload failed with status ${res.status}`);
+      let errorMsg = `HTTP Error ${res.status}`;
+      try {
+        const errorData = await res.json();
+        if (typeof errorData === "string") {
+          errorMsg = errorData;
+        } else if (errorData && typeof errorData === "object") {
+          if (Array.isArray(errorData.detail)) {
+            // FastAPI validation error list
+            errorMsg = errorData.detail
+              .map((d: any) => {
+                const loc = d.loc ? d.loc.filter((x: any) => x !== "body").join(".") : "";
+                return `${loc ? loc + ": " : ""}${d.msg || JSON.stringify(d)}`;
+              })
+              .join("; ");
+          } else if (typeof errorData.detail === "string") {
+            errorMsg = errorData.detail;
+          } else if (errorData.detail && typeof errorData.detail === "object") {
+            const d = errorData.detail;
+            const parts: string[] = [];
+            if (d.message) parts.push(d.message);
+            if (d.code) parts.push(`Code: ${d.code}`);
+            if (d.details) parts.push(`Details: ${d.details}`);
+            if (d.hint) parts.push(`Hint: ${d.hint}`);
+            errorMsg = parts.length > 0 ? parts.join(" | ") : JSON.stringify(d);
+          } else if (errorData.message) {
+            const parts: string[] = [errorData.message];
+            if (errorData.code) parts.push(`Code: ${errorData.code}`);
+            if (errorData.details) parts.push(`Details: ${errorData.details}`);
+            if (errorData.hint) parts.push(`Hint: ${errorData.hint}`);
+            errorMsg = parts.join(" | ");
+          } else {
+            errorMsg = JSON.stringify(errorData);
+          }
+        }
+      } catch {
+        // ignore
+      }
+      throw new Error(errorMsg);
     }
+
     return res.json();
-  },
+  }
 
-  // Session & Intake
-  createSession: (patient_id: string, mode: string = 'STANDARD', language: string = 'en') =>
-    fetchApi<any>('/sessions/start', {
-      method: 'POST',
-      body: JSON.stringify({ patient_id, mode, selected_language: language, preferred_language: language }),
-    }),
+  // Auth Endpoints
+  static async registerPatient(data: any) {
+    return this.request<any>("/auth/patient/signup", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
 
-  recordConsent: (session_id: string, consents: any[], language: string = 'en') =>
-    fetchApi<any>(`/sessions/${session_id}/consent`, {
-      method: 'POST',
-      body: JSON.stringify({ consents, language, audio_recorded: true }),
-    }),
+  static async registerDoctor(data: any) {
+    return this.request<any>("/auth/doctor/signup", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
 
-  // Interview Question Graph
-  getNextQuestion: (session_id: string) =>
-    fetchApi<any>(`/interviews/${session_id}/next-question`),
+  static async login(identifier: string, password: string) {
+    return this.request<any>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ identifier, password }),
+    });
+  }
 
-  submitAnswer: (session_id: string, question_id: string, answer_text: string, input_method: string = 'touch') =>
-    fetchApi<any>(`/interviews/${session_id}/answers`, {
-      method: 'POST',
-      body: JSON.stringify({ question_id, answer_text, input_method }),
-    }),
+  static async forgotPassword(email: string) {
+    return this.request<any>("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  }
 
-  getPatientDocuments: (patient_id: string) =>
-    fetchApi<any>(`/documents/patient/${patient_id}`),
+  static async getMe() {
+    return this.request<any>("/auth/me");
+  }
 
-  getTimeline: (patient_id: string) =>
-    fetchApi<any>(`/timeline/${patient_id}`),
+  // Patient Endpoints
+  static async getPatientProfile() {
+    return this.request<any>("/patients/profile");
+  }
 
-  getRedFlags: (session_id: string) =>
-    fetchApi<any>(`/red-flags/session/${session_id}`),
+  static async updatePatientProfile(data: any) {
+    return this.request<any>("/patients/profile", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
 
-  getAyushAssessment: (session_id: string) =>
-    fetchApi<any>(`/ayush/${session_id}`),
+  static async getPatientHistory() {
+    return this.request<any[]>("/patients/history");
+  }
 
-  getSummary: (session_id: string) =>
-    fetchApi<any>(`/summaries/${session_id}`),
+  static async addPatientHistory(data: any) {
+    return this.request<any>("/patients/history", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
 
-  // Doctor Clinical Queue & Review
-  getDoctorQueue: () => fetchApi<any>('/doctors/queue'),
-  getPatientFullRecord: (patient_id: string) =>
-    fetchApi<any>(`/doctors/patient/${patient_id}/full-record`),
+  static async deletePatientHistory(id: string) {
+    return this.request<any>(`/patients/history/${id}`, {
+      method: "DELETE",
+    });
+  }
 
-  verifyField: (session_id: string, field_id: string, field_type: string, action: 'CONFIRMED' | 'FLAGGED_CONTRADICTION') =>
-    fetchApi<any>(`/doctors/review/${session_id}/verify-field`, {
-      method: 'POST',
-      body: JSON.stringify({ field_id, field_type, action }),
-    }),
+  static async getPatientTimeline() {
+    return this.request<any[]>("/patients/timeline");
+  }
 
-  signOffCase: (session_id: string, clinical_notes: string, provisional_plan: string) =>
-    fetchApi<any>(`/doctors/review/${session_id}/sign-off`, {
-      method: 'POST',
-      body: JSON.stringify({ clinical_notes, provisional_plan }),
-    }),
+  // Medical Documents
+  static async uploadDocument(formData: FormData) {
+    return this.request<any>("/documents/upload", {
+      method: "POST",
+      body: formData,
+    });
+  }
 
-  getFhirBundle: (patient_id: string) =>
-    fetchApi<any>(`/fhir/patient/${patient_id}/bundle`),
+  // Doctor-Patient Relationships
+  static async getAvailableDoctors() {
+    return this.request<any[]>("/doctors");
+  }
 
-  // Triage & ABDM Integrations
-  getTriageAlerts: () => fetchApi<any[]>('/triage/alerts'),
-  takeTriageAction: (alertId: string, status: string, actionNote: string) =>
-    fetchApi<any>(`/triage/alerts/${alertId}/action`, {
-      method: 'POST',
-      body: JSON.stringify({ status, action_taken: actionNote }),
-    }),
-  verifyAbha: (abha_id: string) =>
-    fetchApi<any>('/abdm/verify-abha', {
-      method: 'POST',
-      body: JSON.stringify({ abha_id }),
-    }),
-};
+  static async connectDoctor(doctorIdentifier?: string, doctorName?: string) {
+    return this.request<any>("/relationships/connect", {
+      method: "POST",
+      body: JSON.stringify({
+        doctor_identifier: doctorIdentifier,
+        doctor_name: doctorName,
+      }),
+    });
+  }
+
+  static async getCurrentConnection() {
+    return this.request<any>("/relationships/current");
+  }
+
+  // Clinical Interviews & AI Question Graph
+  static async startInterview(sessionId?: string, doctorId?: string, language: string = "en") {
+    return this.request<any>("/interviews/start", {
+      method: "POST",
+      body: JSON.stringify({
+        session_id: sessionId,
+        doctor_id: doctorId,
+        language,
+      }),
+    });
+  }
+
+  static async submitAnswer(sessionId: string, questionId: string, answerText: string, language: string = "en") {
+    return this.request<any>("/interviews/answer", {
+      method: "POST",
+      body: JSON.stringify({
+        session_id: sessionId,
+        question_id: questionId,
+        answer_text: answerText,
+        language,
+      }),
+    });
+  }
+
+  static async getLatestSummary() {
+    return this.request<any>("/summaries/latest");
+  }
+
+  // Doctor Portal Endpoints
+  static async getAssignedPatients() {
+    return this.request<any[]>("/doctors/patients");
+  }
+
+  static async searchPatients(query: string) {
+    return this.request<any[]>(`/doctors/patients/search?query=${encodeURIComponent(query)}`);
+  }
+
+  static async getPatientCase(patientId: string) {
+    return this.request<any>(`/doctors/patients/${patientId}/case`);
+  }
+
+  static async verifySummary(patientId: string, summaryId: string, notes: string) {
+    return this.request<any>(`/doctors/patients/${patientId}/verify-summary`, {
+      method: "POST",
+      body: JSON.stringify({ summary_id: summaryId, notes }),
+    });
+  }
+}

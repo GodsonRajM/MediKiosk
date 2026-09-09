@@ -1,0 +1,1 @@
+"""MediKiosk Pydantic Schemas"""

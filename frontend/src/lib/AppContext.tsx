@@ -1,102 +1,139 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { translations, Language, Translations } from './translations';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { Language, translations, Translations } from "./translations";
+import { ApiService } from "./api";
+
+interface User {
+  sub: string;
+  email: string;
+  role: "patient" | "doctor" | "admin";
+  name: string;
+  medikiosk_id?: string;
+  doctor_id?: string;
+  formatted_id?: string;
+}
 
 interface AppContextType {
-  lang: Language;
-  setLang: (l: Language) => void;
+  user: User | null;
+  theme: "light" | "dark";
+  language: Language;
   t: Translations;
-  theme: 'light' | 'dark';
-  toggleTheme: () => void;
-  user: any;
-  setUser: (u: any) => void;
+  setTheme: (theme: "light" | "dark") => void;
+  setLanguage: (lang: Language) => void;
+  login: (token: string, user: User) => void;
   logout: () => void;
+  refreshUser: () => Promise<void>;
+  isLoading: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLangState] = useState<Language>('en');
-  const [theme, setThemeState] = useState<'light' | 'dark'>('light');
-  const [user, setUserState] = useState<any>(null);
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [theme, setThemeState] = useState<"light" | "dark">("light");
+  const [language, setLanguageState] = useState<Language>("en");
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  // Initialize theme, language, and user session from localStorage
   useEffect(() => {
-    // Load persisted settings
-    const savedLang = localStorage.getItem('medikiosk_lang') as Language;
-    if (savedLang && ['en', 'kn', 'ta', 'hi'].includes(savedLang)) {
-      setLangState(savedLang);
-    }
+    const savedTheme = (localStorage.getItem("medikiosk_theme") as "light" | "dark") || "light";
+    const savedLang = (localStorage.getItem("medikiosk_lang") as Language) || "en";
+    const savedUser = localStorage.getItem("medikiosk_user");
 
-    const savedTheme = localStorage.getItem('medikiosk_theme') as 'light' | 'dark';
-    if (savedTheme) {
-      setThemeState(savedTheme);
-      document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+    setThemeState(savedTheme);
+    setLanguageState(savedLang);
+
+    if (savedTheme === "dark") {
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.remove("dark");
     }
 
-    const savedUser = localStorage.getItem('medikiosk_user');
     if (savedUser) {
       try {
-        setUserState(JSON.parse(savedUser));
-      } catch (e) {
+        setUser(JSON.parse(savedUser));
+      } catch {
         // ignore
       }
     }
+    setIsLoading(false);
   }, []);
 
-  const setLang = (newLang: Language) => {
-    setLangState(newLang);
-    localStorage.setItem('medikiosk_lang', newLang);
-  };
-
-  const toggleTheme = () => {
-    const nextTheme = theme === 'light' ? 'dark' : 'light';
-    setThemeState(nextTheme);
-    localStorage.setItem('medikiosk_theme', nextTheme);
-    document.documentElement.classList.toggle('dark', nextTheme === 'dark');
-  };
-
-  const setUser = (newUser: any) => {
-    setUserState(newUser);
-    if (newUser) {
-      localStorage.setItem('medikiosk_user', JSON.stringify(newUser));
+  const setTheme = (newTheme: "light" | "dark") => {
+    setThemeState(newTheme);
+    localStorage.setItem("medikiosk_theme", newTheme);
+    if (newTheme === "dark") {
+      document.documentElement.classList.add("dark");
     } else {
-      localStorage.removeItem('medikiosk_user');
-      localStorage.removeItem('medikiosk_token');
+      document.documentElement.classList.remove("dark");
     }
+  };
+
+  const setLanguage = (newLang: Language) => {
+    setLanguageState(newLang);
+    localStorage.setItem("medikiosk_lang", newLang);
+  };
+
+  const login = (token: string, newUser: User) => {
+    ApiService.setToken(token);
+    setUser(newUser);
+    localStorage.setItem("medikiosk_user", JSON.stringify(newUser));
   };
 
   const logout = () => {
+    ApiService.removeToken();
     setUser(null);
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
+    if (typeof window !== "undefined") {
+      window.location.href = "/";
     }
   };
+
+  const refreshUser = async () => {
+    try {
+      const me = await ApiService.getMe();
+      const updatedUser: User = {
+        sub: me.id,
+        email: me.email,
+        role: me.role,
+        name: me.full_name,
+        medikiosk_id: me.medikiosk_id,
+        doctor_id: me.doctor_id,
+        formatted_id: me.medikiosk_id || me.doctor_id,
+      };
+      setUser(updatedUser);
+      localStorage.setItem("medikiosk_user", JSON.stringify(updatedUser));
+    } catch {
+      // ignore
+    }
+  };
+
+  const t = translations[language];
 
   return (
     <AppContext.Provider
       value={{
-        lang,
-        setLang,
-        t: translations[lang] || translations.en,
-        theme,
-        toggleTheme,
         user,
-        setUser,
+        theme,
+        language,
+        t,
+        setTheme,
+        setLanguage,
+        login,
         logout,
+        refreshUser,
+        isLoading,
       }}
     >
       {children}
     </AppContext.Provider>
   );
-}
+};
 
-export function useApp() {
+export const useApp = () => {
   const context = useContext(AppContext);
   if (!context) {
-    throw new Error('useApp must be used within an AppProvider');
+    throw new Error("useApp must be used within an AppProvider");
   }
   return context;
-}
+};

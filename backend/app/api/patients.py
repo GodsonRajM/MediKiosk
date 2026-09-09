@@ -1,184 +1,108 @@
+from fastapi import APIRouter, HTTPException, status, Depends
+from datetime import datetime, timezone
+from typing import List, Dict, Any
 import uuid
-from datetime import datetime
-from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import List, Dict, Any, Optional
-from app.schemas.patient import PatientCreate, PatientUpdate, PatientResponse, PatientIdentifierSchema, MedicalRecordCreate
+
 from app.core.database import db
 from app.core.security import get_current_user
-from app.core.supabase import get_supabase_client
+from app.schemas.patient import ProfileUpdateRequest, MedicalHistoryCreate, MedicalHistoryUpdate
 
-router = APIRouter(prefix="/patients", tags=["Patients"])
+router = APIRouter(prefix="/patients", tags=["Patient Portal"])
 
-@router.get("/search", response_model=List[PatientResponse])
-async def search_patients(
-    q: str = Query(..., description="Query by Patient ID (e.g. MK-P10001), full name, or phone"),
-    current_user: Dict[str, Any] = Depends(get_current_user)
-):
-    query = q.strip().lower()
-    results = []
+@router.get("/profile")
+def get_patient_profile(current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("sub")
+    profile = db.select_one("profiles", {"id": user_id})
+    if not profile:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient profile not found")
+    
+    clean = dict(profile)
+    clean.pop("hashed_password", None)
+    
+    pid = db.select_one("patient_identifiers", {"profile_id": user_id})
+    clean["medikiosk_id"] = pid["medikiosk_id"] if pid else None
+    return clean
 
-    for p in db.patients.values():
-        if (
-            query in p.get("medikiosk_id", "").lower() or
-            query in p.get("full_name", "").lower() or
-            query in p.get("phone", "").lower() or
-            query in p.get("email", "").lower()
-        ):
-            identifiers = [
-                PatientIdentifierSchema(**i)
-                for i in db.patient_identifiers
-                if i["patient_id"] == p["id"]
-            ]
-            results.append(PatientResponse(
-                id=p["id"],
-                medikiosk_id=p["medikiosk_id"],
-                full_name=p["full_name"],
-                date_of_birth=p.get("date_of_birth"),
-                age=p.get("age"),
-                gender=p.get("gender", "Other"),
-                phone=p["phone"],
-                email=p.get("email"),
-                address=p.get("address"),
-                blood_group=p.get("blood_group"),
-                emergency_contact_name=p.get("emergency_contact_name"),
-                emergency_contact_phone=p.get("emergency_contact_phone"),
-                preferred_language=p.get("preferred_language", "en"),
-                identifiers=identifiers
-            ))
+@router.put("/profile")
+def update_patient_profile(payload: ProfileUpdateRequest, current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("sub")
+    data_to_update = {k: v for k, v in payload.dict().items() if v is not None}
+    
+    updated = db.update("profiles", {"id": user_id}, data_to_update)
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
+    
+    res = dict(updated[0])
+    res.pop("hashed_password", None)
+    return res
 
-    return results
+@router.get("/history")
+def get_patient_history(current_user: dict = Depends(get_current_user)):
+    """
+    Returns the patient's real medical history from Supabase.
+    Zero fake records. Empty array if nothing recorded yet.
+    """
+    user_id = current_user.get("sub")
+    records = db.select("medical_history", {"patient_id": user_id})
+    return records
 
-@router.get("/{patient_id}", response_model=PatientResponse)
-async def get_patient(patient_id: str, current_user: Dict[str, Any] = Depends(get_current_user)):
-    patient = db.patients.get(patient_id)
-    if not patient:
-        for p in db.patients.values():
-            if p.get("medikiosk_id") == patient_id:
-                patient = p
-                break
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient record not found")
+@router.post("/history", status_code=status.HTTP_201_CREATED)
+def add_patient_history(payload: MedicalHistoryCreate, current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("sub")
+    rec_id = str(uuid.uuid4())
+    date_rec = payload.date_recorded or datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    identifiers = [
-        PatientIdentifierSchema(**i)
-        for i in db.patient_identifiers
-        if i["patient_id"] == patient["id"]
-    ]
-
-    return PatientResponse(
-        id=patient["id"],
-        medikiosk_id=patient["medikiosk_id"],
-        full_name=patient["full_name"],
-        date_of_birth=patient.get("date_of_birth"),
-        age=patient.get("age"),
-        gender=patient.get("gender", "Other"),
-        phone=patient["phone"],
-        email=patient.get("email"),
-        address=patient.get("address"),
-        blood_group=patient.get("blood_group"),
-        emergency_contact_name=patient.get("emergency_contact_name"),
-        emergency_contact_phone=patient.get("emergency_contact_phone"),
-        preferred_language=patient.get("preferred_language", "en"),
-        identifiers=identifiers
-    )
-
-@router.put("/{patient_id}", response_model=PatientResponse)
-async def update_patient(patient_id: str, req: PatientUpdate, current_user: Dict[str, Any] = Depends(get_current_user)):
-    patient = db.patients.get(patient_id)
-    if not patient:
-        for p in db.patients.values():
-            if p.get("medikiosk_id") == patient_id:
-                patient = p
-                patient_id = p["id"]
-                break
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient record not found")
-
-    update_data = req.dict(exclude_unset=True)
-    for key, val in update_data.items():
-        if val is not None:
-            patient[key] = val
-
-    sb = get_supabase_client()
-    if sb:
-        try:
-            sb.table("patients").update(update_data).eq("id", patient_id).execute()
-        except Exception:
-            pass
-
-    return await get_patient(patient_id, current_user)
-
-# ------------------------------------------------------------------------------
-# Medical History CRUD (Scans, Prescriptions, Lab Tests)
-# ------------------------------------------------------------------------------
-
-@router.get("/{patient_id}/history")
-async def get_patient_medical_history(patient_id: str, current_user: Dict[str, Any] = Depends(get_current_user)):
-    # Match by patient UUID or medikiosk_id
-    real_p_id = patient_id
-    if patient_id not in db.patients:
-        for p in db.patients.values():
-            if p.get("medikiosk_id") == patient_id:
-                real_p_id = p["id"]
-                break
-
-    records = [r for r in db.medical_history if r.get("patient_id") == real_p_id]
-    return sorted(records, key=lambda x: x.get("date_recorded") or "", reverse=True)
-
-@router.post("/{patient_id}/history")
-async def create_patient_medical_history(
-    patient_id: str,
-    req: MedicalRecordCreate,
-    current_user: Dict[str, Any] = Depends(get_current_user)
-):
-    real_p_id = patient_id
-    if patient_id not in db.patients:
-        for p in db.patients.values():
-            if p.get("medikiosk_id") == patient_id:
-                real_p_id = p["id"]
-                break
-
-    record_id = str(uuid.uuid4())
-    record = {
-        "id": record_id,
-        "patient_id": real_p_id,
-        "record_type": req.record_type,
-        "title": req.title,
-        "description": req.description or "",
-        "file_name": req.file_name,
-        "file_path": req.file_path,
-        "ocr_extracted_text": req.ocr_extracted_text or "",
-        "date_recorded": req.date_recorded or datetime.utcnow().strftime("%Y-%m-%d"),
-        "created_at": datetime.utcnow().isoformat()
+    rec = {
+        "id": rec_id,
+        "patient_id": user_id,
+        "category": payload.category,
+        "title": payload.title,
+        "details": payload.details or {},
+        "date_recorded": date_rec,
+        "created_at": datetime.now(timezone.utc).isoformat()
     }
-    db.medical_history.append(record)
+    db.insert("medical_history", rec)
 
-    sb = get_supabase_client()
-    if sb:
-        try:
-            sb.table("medical_history").insert(record).execute()
-        except Exception:
-            pass
+    # Automatically add to patient's medical timeline
+    timeline_item = {
+        "patient_id": user_id,
+        "event_date": date_rec,
+        "event_type": payload.category.capitalize(),
+        "title": payload.title,
+        "description": f"Recorded {payload.category}: {payload.title}",
+        "source": "history",
+        "source_id": rec_id
+    }
+    db.insert("medical_timeline", timeline_item)
 
-    return {"status": "SUCCESS", "record": record}
+    return rec
 
-@router.delete("/{patient_id}/history/{record_id}")
-async def delete_patient_medical_history(
-    patient_id: str,
-    record_id: str,
-    current_user: Dict[str, Any] = Depends(get_current_user)
-):
-    initial_len = len(db.medical_history)
-    db.medical_history = [r for r in db.medical_history if r.get("id") != record_id]
+@router.put("/history/{history_id}")
+def update_patient_history(history_id: str, payload: MedicalHistoryUpdate, current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("sub")
+    rec = db.select_one("medical_history", {"id": history_id, "patient_id": user_id})
+    if not rec:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="History record not found")
 
-    if len(db.medical_history) == initial_len:
-        raise HTTPException(status_code=404, detail="Medical history record not found")
+    data_to_update = {k: v for k, v in payload.dict().items() if v is not None}
+    updated = db.update("medical_history", {"id": history_id}, data_to_update)
+    return updated[0] if updated else rec
 
-    sb = get_supabase_client()
-    if sb:
-        try:
-            sb.table("medical_history").delete().eq("id", record_id).execute()
-        except Exception:
-            pass
+@router.delete("/history/{history_id}")
+def delete_patient_history(history_id: str, current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("sub")
+    deleted_count = db.delete("medical_history", {"id": history_id, "patient_id": user_id})
+    if deleted_count == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Record not found")
+    
+    # Also delete corresponding timeline item
+    db.delete("medical_timeline", {"source_id": history_id})
+    return {"status": "success", "message": "History record removed"}
 
-    return {"status": "SUCCESS", "message": "Record deleted successfully"}
+@router.get("/timeline")
+def get_patient_timeline(current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("sub")
+    timeline_records = db.select("medical_timeline", {"patient_id": user_id})
+    # Sort descending by date
+    timeline_records.sort(key=lambda x: str(x.get("event_date", "")), reverse=True)
+    return timeline_records

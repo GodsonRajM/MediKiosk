@@ -1,607 +1,350 @@
 export type Language = 'en' | 'kn' | 'ta' | 'hi';
 
 export interface Translations {
-  // Navigation & Branding
-  brandName: string;
-  brandTagline: string;
-  patientPortal: string;
-  doctorPortal: string;
-  triageDesk: string;
-  fhirAbdm: string;
-  signOut: string;
-  audioHelp: string;
-  audioOn: string;
-  sos: string;
-
-  // Login Page
-  patientLoginTab: string;
-  doctorLoginTab: string;
-  patientIdOrEmail: string;
-  doctorIdOrEmail: string;
-  password: string;
-  newPassword: string;
-  confirmPassword: string;
-  signInButton: string;
-  forgotPasswordButton: string;
-  forgotPasswordModalTitle: string;
-  resetPasswordSubmit: string;
-  resetSuccess: string;
-  orContinueWith: string;
-  signInWithGoogle: string;
-  dontHaveAccount: string;
-  alreadyHaveAccount: string;
-  signUpButton: string;
-  registerTitle: string;
-  registerAsPatient: string;
-  registerAsDoctor: string;
-
-  // Demographics & Registration Form
+  appName: string;
+  tagline: string;
+  patientLogin: string;
+  doctorLogin: string;
+  patientId: string;
+  doctorId: string;
   fullName: string;
-  emailAddress: string;
-  phoneNumber: string;
+  email: string;
+  password: string;
+  createPassword: string;
   age: string;
-  gender: string;
-  genderMale: string;
-  genderFemale: string;
-  genderOther: string;
+  phone: string;
   address: string;
   bloodGroup: string;
-  emergencyContactName: string;
-  emergencyContactPhone: string;
+  emergencyContact: string;
   specialization: string;
-  licenseNumber: string;
-  preferredLanguage: string;
-  mandatoryConsentLabel: string;
-  consentAgreementLink: string;
-  consentAgreementModalTitle: string;
-  consentAgreementBody: string;
-  agreeAndClose: string;
-
-  // Patient Portal Sidebar
-  navHome: string;
-  navProfile: string;
-  navHistory: string;
-  navSettings: string;
-
-  // Patient Home
-  selectDoctorPrompt: string;
-  selectDoctorPlaceholder: string;
-  assignedDoctor: string;
-  startIntakeButton: string;
-  resumeIntakeButton: string;
-  intakeProgress: string;
-  intakeCompleted: string;
+  signIn: string;
+  signUp: string;
+  forgotPassword: string;
+  mandatoryConsentTitle: string;
+  mandatoryConsentText: string;
+  acceptConsent: string;
+  rejectConsent: string;
+  consentWarning: string;
+  home: string;
+  profile: string;
+  history: string;
+  settings: string;
+  logout: string;
+  connectDoctor: string;
+  connectedTo: string;
+  searchDoctorPlaceholder: string;
+  connectBtn: string;
+  startIntakeBtn: string;
+  intakeTitle: string;
+  intakeSubtitle: string;
+  nextQuestion: string;
   submitAnswer: string;
-  typeYourAnswer: string;
-  voiceInputButton: string;
-  voiceListening: string;
-
-  // Patient Profile
-  profileTitle: string;
-  patientIdLabel: string;
-  saveProfileChanges: string;
-  profileSavedSuccess: string;
-  consentStatusActive: string;
-
-  // Patient History (Medical Records CRUD)
-  historyTitle: string;
-  uploadRecordButton: string;
-  uploadModalTitle: string;
-  recordType: string;
-  recordTypePrescription: string;
-  recordTypeLabTest: string;
-  recordTypeScanReport: string;
-  recordTypeDischarge: string;
-  recordTitle: string;
-  recordDescription: string;
-  selectFile: string;
+  voiceInput: string;
+  listening: string;
+  previousContext: string;
+  intakeComplete: string;
+  summaryPrepared: string;
+  redFlagAlert: string;
   emptyHistoryTitle: string;
-  emptyHistorySub: string;
-  deleteRecord: string;
-  ocrExtractedFindings: string;
-
-  // Settings
-  settingsTitle: string;
-  themeLabel: string;
-  themeLight: string;
-  themeDark: string;
-  languageLabel: string;
-  privacyPolicyNotice: string;
-
-  // Doctor Portal
-  doctorQueueTitle: string;
+  emptyHistoryDesc: string;
+  addRecord: string;
+  uploadDocument: string;
+  uploadDesc: string;
+  doctorDashboard: string;
   searchPatientPlaceholder: string;
-  emptyQueueTitle: string;
-  emptyQueueSub: string;
-  caseReviewTitle: string;
+  assignedPatients: string;
+  reviewCase: string;
   chiefComplaint: string;
-  hpiTitle: string;
-  medicalHistorySection: string;
-  documentsEvidenceSection: string;
-  verifyFieldButton: string;
-  verifiedBadge: string;
-  clinicalNotesLabel: string;
-  prescriptionPlanLabel: string;
-  signOffCaseButton: string;
-  signOffSuccess: string;
-  exportFhirButton: string;
-  doctorHistoryTab: string;
+  hpi: string;
+  pastHistory: string;
+  medications: string;
+  allergies: string;
+  verifiedByDoctor: string;
+  markVerified: string;
+  exportFhir: string;
+  theme: string;
+  language: string;
+  lightTheme: string;
+  darkTheme: string;
+  saveChanges: string;
+  profileUpdated: string;
 }
 
 export const translations: Record<Language, Translations> = {
   en: {
-    brandName: "MediKiosk",
-    brandTagline: "Pre-Consultation Clinical Intake • SIH26047",
-    patientPortal: "Patient Portal",
-    doctorPortal: "Doctor Portal",
-    triageDesk: "Triage Desk",
-    fhirAbdm: "FHIR / ABDM",
-    signOut: "Sign Out",
-    audioHelp: "Audio Help",
-    audioOn: "Audio ON",
-    sos: "SOS",
-
-    patientLoginTab: "PATIENT LOGIN",
-    doctorLoginTab: "DOCTOR LOGIN",
-    patientIdOrEmail: "Patient ID (e.g. MK-P10001) or Phone / Email",
-    doctorIdOrEmail: "Doctor ID (e.g. MK-D10001) or Email",
-    password: "Password",
-    newPassword: "New Password",
-    confirmPassword: "Confirm Password",
-    signInButton: "Sign In",
-    forgotPasswordButton: "Forgot Password?",
-    forgotPasswordModalTitle: "Reset Your Account Password",
-    resetPasswordSubmit: "Set New Password",
-    resetSuccess: "Password reset successfully! You can now sign in.",
-    orContinueWith: "Or continue with",
-    signInWithGoogle: "Sign In with Google",
-    dontHaveAccount: "Don't have an account?",
-    alreadyHaveAccount: "Already have an account?",
-    signUpButton: "Register for MediKiosk",
-    registerTitle: "Create Verified Account",
-    registerAsPatient: "Patient Account",
-    registerAsDoctor: "Doctor Account",
-
+    appName: "MediKiosk",
+    tagline: "Pre-consultation, AI-assisted clinical case-taking system",
+    patientLogin: "PATIENT LOGIN",
+    doctorLogin: "DOCTOR LOGIN",
+    patientId: "Patient ID (e.g. MK-000001)",
+    doctorId: "Doctor ID (e.g. DK-000001)",
     fullName: "Full Name",
-    emailAddress: "Email Address",
-    phoneNumber: "Mobile Number",
+    email: "Email Address",
+    password: "Password",
+    createPassword: "Create Password",
     age: "Age",
-    gender: "Gender",
-    genderMale: "Male",
-    genderFemale: "Female",
-    genderOther: "Other",
+    phone: "Phone Number",
     address: "Residential Address",
-    bloodGroup: "Blood Group",
-    emergencyContactName: "Emergency Contact Name",
-    emergencyContactPhone: "Emergency Contact Phone",
-    specialization: "Medical Specialization",
-    licenseNumber: "Medical License Number",
-    preferredLanguage: "Preferred Language",
-    mandatoryConsentLabel: "I explicitly consent to the collection and processing of my health intake data for doctor consultation under ABDM & Digital Personal Data Protection (DPDP) Act standards.",
-    consentAgreementLink: "View Consent Agreement & Terms",
-    consentAgreementModalTitle: "Informed Patient Consent Agreement",
-    consentAgreementBody: "MediKiosk operates as a pre-consultation case-taking assistant under Ministry of Ayush & ABDM standards. By proceeding, you authorize MediKiosk to record your self-reported symptoms, medications, and medical documents to prepare an evidence-linked longitudinal summary strictly for your treating physician. MediKiosk does not autonomously diagnose or prescribe. Your consent can be reviewed or revoked at any time in Settings.",
-    agreeAndClose: "I Understand and Agree",
-
-    navHome: "Home",
-    navProfile: "Profile",
-    navHistory: "Medical History",
-    navSettings: "Settings",
-
-    selectDoctorPrompt: "Select or Enter Doctor ID / Name before Starting Intake",
-    selectDoctorPlaceholder: "Search Doctor by Name or ID (e.g. MK-D10001)...",
-    assignedDoctor: "Assigned Physician",
-    startIntakeButton: "Start Pre-Consultation Intake",
-    resumeIntakeButton: "Continue Clinical Intake",
-    intakeProgress: "Clinical Intake Progress",
-    intakeCompleted: "Intake Complete! Ready for Doctor Review.",
-    submitAnswer: "Submit & Next Question",
-    typeYourAnswer: "Type your response or choose from options below...",
-    voiceInputButton: "Speak Answer",
-    voiceListening: "Listening... speak clearly into microphone",
-
-    profileTitle: "Patient Demographic Profile",
-    patientIdLabel: "Unique MediKiosk ID",
-    saveProfileChanges: "Save Profile Changes",
-    profileSavedSuccess: "Profile updated successfully in Supabase!",
-    consentStatusActive: "Explicit Clinical Consent: ACTIVE",
-
-    historyTitle: "Medical Records & OCR Extraction",
-    uploadRecordButton: "Upload Record",
-    uploadModalTitle: "Upload Medical Document (Prescription / Scan / Lab Report)",
-    recordType: "Record Category",
-    recordTypePrescription: "Prescription",
-    recordTypeLabTest: "Lab Test Report",
-    recordTypeScanReport: "Scan / X-Ray Report",
-    recordTypeDischarge: "Discharge Summary",
-    recordTitle: "Record Title / Doctor Name",
-    recordDescription: "Notes / Description",
-    selectFile: "Choose File (PDF, PNG, JPG)",
-    emptyHistoryTitle: "No Medical Records Found",
-    emptyHistorySub: "Upload your prescriptions, scan reports, or lab tests to build your real longitudinal case history.",
-    deleteRecord: "Delete",
-    ocrExtractedFindings: "AI / OCR Extracted Clinical Findings",
-
-    settingsTitle: "Application & System Settings",
-    themeLabel: "Display Theme",
-    themeLight: "Healthcare Light (White & Blue)",
-    themeDark: "Dark Charcoal & Blue",
-    languageLabel: "Interface & Clinical Question Language",
-    privacyPolicyNotice: "Designed with privacy-by-design principles and intended to align with applicable Indian data protection, ABDM consent, and healthcare security requirements. Production deployment requires formal security and compliance validation.",
-
-    doctorQueueTitle: "Physician Clinical Queue",
-    searchPatientPlaceholder: "Search Patients by Patient ID (MK-P10001) or Name in Database...",
-    emptyQueueTitle: "No Patients in Queue",
-    emptyQueueSub: "Connected patients who complete pre-consultation intake will appear here automatically.",
-    caseReviewTitle: "Evidence-Linked Clinical Case Review",
+    bloodGroup: "Blood Group (Optional)",
+    emergencyContact: "Emergency Contact Number",
+    specialization: "Clinical Specialization",
+    signIn: "Sign In",
+    signUp: "Create New Account",
+    forgotPassword: "Forgot Password?",
+    mandatoryConsentTitle: "Mandatory Clinical Intake & Privacy Consent",
+    mandatoryConsentText: "MediKiosk collects and analyzes your clinical symptoms and medical history solely to prepare your OPD case before meeting the doctor. Your health data is protected under Indian data privacy principles and never shared without authorization.",
+    acceptConsent: "I understand and grant mandatory consent for clinical intake",
+    rejectConsent: "Decline consent",
+    consentWarning: "Consent is mandatory to proceed with OPD clinical intake.",
+    home: "Home",
+    profile: "Profile",
+    history: "Medical History",
+    settings: "Settings",
+    logout: "Logout",
+    connectDoctor: "Connect with your Doctor",
+    connectedTo: "Connected Attending Physician",
+    searchDoctorPlaceholder: "Enter Doctor ID (DK-XXXXXX) or Doctor Name...",
+    connectBtn: "Connect Doctor",
+    startIntakeBtn: "Begin AI Clinical Intake",
+    intakeTitle: "Pre-Consultation Case Taking",
+    intakeSubtitle: "AI prepares the case; the doctor owns the clinical decision.",
+    nextQuestion: "Next Question",
+    submitAnswer: "Submit Answer",
+    voiceInput: "Voice Answering",
+    listening: "Listening... Speak your answer",
+    previousContext: "Previous Answers Recorded",
+    intakeComplete: "Clinical Intake Complete",
+    summaryPrepared: "Your clinical summary has been synthesized and securely forwarded to your doctor.",
+    redFlagAlert: "Priority Clinical Assessment Recommended",
+    emptyHistoryTitle: "No Medical History Available",
+    emptyHistoryDesc: "You have not recorded any medical history yet. Add your past conditions, surgeries, or upload previous prescriptions.",
+    addRecord: "Add Medical Record",
+    uploadDocument: "Upload Medical Document",
+    uploadDesc: "Drag and drop or select prescriptions, lab reports, X-rays, or discharge summaries (PDF/PNG/JPG).",
+    doctorDashboard: "OPD Physician Dashboard",
+    searchPatientPlaceholder: "Search patient by Name or Patient ID (MK-XXXXXX)...",
+    assignedPatients: "Connected Patients Queue",
+    reviewCase: "Review Clinical Case",
     chiefComplaint: "Chief Complaint",
-    hpiTitle: "History of Present Illness (HPI)",
-    medicalHistorySection: "Medical History & Current Medications",
-    documentsEvidenceSection: "Attached Document Evidence & Scans",
-    verifyFieldButton: "Doctor Verify",
-    verifiedBadge: "Verified by Doctor",
-    clinicalNotesLabel: "Physician Clinical Notes",
-    prescriptionPlanLabel: "Provisional Care Plan & Prescription",
-    signOffCaseButton: "Complete & Sign Off Case",
-    signOffSuccess: "Case verified and signed off successfully! Audit log and FHIR bundle generated.",
-    exportFhirButton: "Export FHIR R4 Bundle",
-    doctorHistoryTab: "Reviewed Cases History"
+    hpi: "History of Present Illness",
+    pastHistory: "Past Medical History",
+    medications: "Current Medications",
+    allergies: "Known Allergies",
+    verifiedByDoctor: "Doctor Verified",
+    markVerified: "Confirm & Verify Clinical Summary",
+    exportFhir: "Export HL7 FHIR R4 Bundle",
+    theme: "Theme",
+    language: "Language",
+    lightTheme: "Light Mode",
+    darkTheme: "Dark Mode",
+    saveChanges: "Save Changes",
+    profileUpdated: "Profile successfully updated."
   },
-
   kn: {
-    brandName: "ಮೆಡಿಕಿಯೋಸ್ಕ್",
-    brandTagline: "ಸಮಾಲೋಚನೆಗೆ ಮುಂಚಿನ ಕ್ಲಿನಿಕಲ್ ಇಂಟೇಕ್ • SIH26047",
-    patientPortal: "ರೋಗಿಗಳ ಪೋರ್ಟಲ್",
-    doctorPortal: "ವೈದ್ಯರ ಪೋರ್ಟಲ್",
-    triageDesk: "ಟ್ರಯಾಜ್ ಡೆಸ್ಕ್",
-    fhirAbdm: "FHIR / ABDM",
-    signOut: "ಸೈನ್ ಔಟ್",
-    audioHelp: "ಧ್ವನಿ ಸಹಾಯ",
-    audioOn: "ಧ್ವನಿ ಆನ್ ಆಗಿದೆ",
-    sos: "ತುರ್ತು ಸಹಾಯ (SOS)",
-
-    patientLoginTab: "ರೋಗಿಗಳ ಲಾಗಿನ್",
-    doctorLoginTab: "ವೈದ್ಯರ ಲಾಗಿನ್",
-    patientIdOrEmail: "ರೋಗಿಯ ಐಡಿ (ಉದಾ. MK-P10001) ಅಥವಾ ಫೋನ್ / ಇಮೇಲ್",
-    doctorIdOrEmail: "ವೈದ್ಯರ ಐಡಿ (ಉದಾ. MK-D10001) ಅಥವಾ ಇಮೇಲ್",
-    password: "ಪಾಸ್‌ವರ್ಡ್",
-    newPassword: "ಹೊಸ ಪಾಸ್‌ವರ್ಡ್",
-    confirmPassword: "ಪಾಸ್‌ವರ್ಡ್ ದೃಢೀಕರಿಸಿ",
-    signInButton: "ಲಾಗಿನ್ ಆಗಿ",
-    forgotPasswordButton: "ಪಾಸ್‌ವರ್ಡ್ ಮರೆತಿರಾ?",
-    forgotPasswordModalTitle: "ಪಾಸ್‌ವರ್ಡ್ ಮರುಹೊಂದಿಸಿ",
-    resetPasswordSubmit: "ಹೊಸ ಪಾಸ್‌ವರ್ಡ್ ಹೊಂದಿಸಿ",
-    resetSuccess: "ಪಾಸ್‌ವರ್ಡ್ ಯಶಸ್ವಿಯಾಗಿ ಬದಲಾಗಿದೆ! ಈಗ ನೀವು ಲಾಗಿನ್ ಆಗಬಹುದು.",
-    orContinueWith: "ಅಥವಾ ಇದರ ಮೂಲಕ ಮುಂದುವರಿಯಿರಿ",
-    signInWithGoogle: "ಗೂಗಲ್ ಮೂಲಕ ಲಾಗಿನ್ ಆಗಿ",
-    dontHaveAccount: "ಖಾತೆ ಇಲ್ಲವೇ?",
-    alreadyHaveAccount: "ಈಗಾಗಲೇ ಖಾತೆ ಹೊಂದಿದ್ದೀರಾ?",
-    signUpButton: "ಹೊಸ ಖಾತೆ ನೋಂದಾಯಿಸಿ",
-    registerTitle: "ಖಾತೆ ನೋಂದಣಿ",
-    registerAsPatient: "ರೋಗಿಯ ಖಾತೆ",
-    registerAsDoctor: "ವೈದ್ಯರ ಖಾತೆ",
-
+    appName: "ಮೆಡಿಕಿಯೋಸ್ಕ್ (MediKiosk)",
+    tagline: "ವೈದ್ಯರ ಭೇಟಿಗೆ ಮುನ್ನ, ಎಐ-ಚಾಲಿತ ರೋಗಿಯ ಇತಿಹಾಸ ಸಂಗ್ರಹಣಾ ವ್ಯವಸ್ಥೆ",
+    patientLogin: "ರೋಗಿಗಳ ಲಾಗಿನ್",
+    doctorLogin: "ವೈದ್ಯರ ಲಾಗಿನ್",
+    patientId: "ರೋಗಿ ಐಡಿ (ಉದಾ: MK-000001)",
+    doctorId: "ವೈದ್ಯರ ಐಡಿ (ಉದಾ: DK-000001)",
     fullName: "ಪೂರ್ಣ ಹೆಸರು",
-    emailAddress: "ಇಮೇಲ್ ವಿಳಾಸ",
-    phoneNumber: "ಮೊಬೈಲ್ ಸಂಖ್ಯೆ",
+    email: "ಇಮೇಲ್ ವಿಳಾಸ",
+    password: "ಪಾಸ್‌ವರ್ಡ್",
+    createPassword: "ಹೊಸ ಪಾಸ್‌ವರ್ಡ್ ರಚಿಸಿ",
     age: "ವಯಸ್ಸು",
-    gender: "ಲಿಂಗ",
-    genderMale: "ಪುರುಷ",
-    genderFemale: "ಮಹಿಳೆ",
-    genderOther: "ಇತರೆ",
-    address: "ನಿವಾಸದ ವಿಳಾಸ",
-    bloodGroup: "ರಕ್ತದ ಗುಂಪು",
-    emergencyContactName: "ತುರ್ತು ಸಂಪರ್ಕ ವ್ಯಕ್ತಿಯ ಹೆಸರು",
-    emergencyContactPhone: "ತುರ್ತು ಸಂಪರ್ಕ ಫೋನ್ ಸಂಖ್ಯೆ",
-    specialization: "ವೈದ್ಯಕೀಯ ಪರಿಣತಿ",
-    licenseNumber: "ವೈದ್ಯಕೀಯ ಪರವಾನಗಿ ಸಂಖ್ಯೆ",
-    preferredLanguage: "ಆದ್ಯತೆಯ ಭಾಷೆ",
-    mandatoryConsentLabel: "ABDM ಮತ್ತು ಡಿಜಿಟಲ್ ವೈಯಕ್ತಿಕ ಡೇಟಾ ಸಂರಕ್ಷಣೆ (DPDP) ಕಾಯಿದೆಯ ಮಾನದಂಡಗಳ ಅಡಿಯಲ್ಲಿ ವೈದ್ಯಕೀಯ ಸಮಾಲೋಚನೆಗಾಗಿ ನನ್ನ ಆರೋಗ್ಯ ಮಾಹಿತಿಯನ್ನು ಸಂಗ್ರಹಿಸಲು ಮತ್ತು ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಲು ನಾನು ಸ್ಪಷ್ಟವಾಗಿ ಒಪ್ಪಿಗೆ ನೀಡುತ್ತೇನೆ.",
-    consentAgreementLink: "ಒಪ್ಪಂದದ ನಿಯಮಗಳನ್ನು ವೀಕ್ಷಿಸಿ",
-    consentAgreementModalTitle: "ರೋಗಿಯ ಮಾಹಿತಿ ಒಪ್ಪಂದ",
-    consentAgreementBody: "ಮೆಡಿಕಿಯೋಸ್ಕ್ ಆಯುಷ್ ಸಚಿವಾಲಯ ಮತ್ತು ABDM ಮಾನದಂಡಗಳ ಅಡಿಯಲ್ಲಿ ಕಾರ್ಯನಿರ್ವಹಿಸುತ್ತದೆ. ನಿಮ್ಮ ವೈದ್ಯರಿಗೆ ಕ್ಲಿನಿಕಲ್ ಸಾರಾಂಶವನ್ನು ಸಿದ್ಧಪಡಿಸಲು ನಿಮ್ಮ ಲಕ್ಷಣಗಳು, ಔಷಧಿಗಳು ಮತ್ತು ದಾಖಲೆಗಳನ್ನು ಸಂಗ್ರಹಿಸಲು ನೀವು ಅಧಿಕಾರ ನೀಡುತ್ತೀರಿ. ಮೆಡಿಕಿಯೋಸ್ಕ್ ತಾನಾಗಿಯೇ ರೋಗನಿರ್ಣಯ ಅಥವಾ ಔಷಧಿಯನ್ನು ನೀಡುವುದಿಲ್ಲ.",
-    agreeAndClose: "ನಾನು ಅರ್ಥಮಾಡಿಕೊಂಡಿದ್ದೇನೆ ಮತ್ತು ಒಪ್ಪುತ್ತೇನೆ",
-
-    navHome: "ಮುಖಪುಟ",
-    navProfile: "ಪ್ರೊಫೈಲ್",
-    navHistory: "ವೈದ್ಯಕೀಯ ಇತಿಹಾಸ",
-    navSettings: "ಸೆಟ್ಟಿಂಗ್‌ಗಳು",
-
-    selectDoctorPrompt: "ಪ್ರಾರಂಭಿಸುವ ಮೊದಲು ವೈದ್ಯರ ಐಡಿ / ಹೆಸರನ್ನು ಆಯ್ಕೆಮಾಡಿ",
-    selectDoctorPlaceholder: "ವೈದ್ಯರನ್ನು ಹುಡುಕಿ (ಉದಾ. MK-D10001)...",
-    assignedDoctor: "ನೇಮಕಗೊಂಡ ವೈದ್ಯರು",
-    startIntakeButton: "ಕ್ಲಿನಿಕಲ್ ಇಂಟೇಕ್ ಪ್ರಾರಂಭಿಸಿ",
-    resumeIntakeButton: "ಇಂಟೇಕ್ ಮುಂದುವರಿಸಿ",
-    intakeProgress: "ಪ್ರಶ್ನೋತ್ತರ ಪ್ರಗತಿ",
-    intakeCompleted: "ಪ್ರಶ್ನಾವಳಿ ಪೂರ್ಣಗೊಂಡಿದೆ! ವೈದ್ಯರ ಪರಿಶೀಲನೆಗೆ ಸಿದ್ಧವಾಗಿದೆ.",
-    submitAnswer: "ಉತ್ತರಿಸಿ ಮತ್ತು ಮುಂದಿನ ಪ್ರಶ್ನೆ",
-    typeYourAnswer: "ನಿಮ್ಮ ಉತ್ತರವನ್ನು ಟೈಪ್ ಮಾಡಿ ಅಥವಾ ಕೆಳಗೆ ಆಯ್ಕೆಮಾಡಿ...",
-    voiceInputButton: "ಧ್ವನಿ ಮೂಲಕ ಮಾತನಾಡಿ",
-    voiceListening: "ಆಲಿಸುತ್ತಿದೆ... ಮೈಕ್ರೊಫೋನ್‌ನಲ್ಲಿ ಸ್ಪಷ್ಟವಾಗಿ ಮಾತನಾಡಿ",
-
-    profileTitle: "ರೋಗಿಯ ವಿವರಗಳು",
-    patientIdLabel: "ಮೆಡಿಕಿಯೋಸ್ಕ್ ಐಡಿ",
-    saveProfileChanges: "ಬದಲಾವಣೆಗಳನ್ನು ಉಳಿಸಿ",
-    profileSavedSuccess: "ವಿವರಗಳನ್ನು ಯಶಸ್ವಿಯಾಗಿ ನವೀಕರಿಸಲಾಗಿದೆ!",
-    consentStatusActive: "ಸಮ್ಮತಿ ಸ್ಥಿತಿ: ಸಕ್ರಿಯವಾಗಿದೆ",
-
-    historyTitle: "ವೈದ್ಯಕೀಯ ದಾಖಲೆಗಳು ಮತ್ತು OCR",
-    uploadRecordButton: "ದಾಖಲೆ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ",
-    uploadModalTitle: "ವೈದ್ಯಕೀಯ ದಾಖಲೆ ಅಪ್‌ಲೋಡ್ (ಪ್ರಿಸ್ಕ್ರಿಪ್ಷನ್ / ಸ್ಕ್ಯಾನ್ / ಲ್ಯಾಬ್ ವರದಿ)",
-    recordType: "ದಾಖಲೆಯ ಪ್ರಕಾರ",
-    recordTypePrescription: "ಪ್ರಿಸ್ಕ್ರಿಪ್ಷನ್ (ಔಷಧಿ ಚೀಟಿ)",
-    recordTypeLabTest: "ಪ್ರಯೋಗಾಲಯ ವರದಿ",
-    recordTypeScanReport: "ಸ್ಕ್ಯಾನ್ / ಎಕ್ಸ್-ರೇ ವರದಿ",
-    recordTypeDischarge: "ಡಿಸ್ಚಾರ್ಜ್ ಸಾರಾಂಶ",
-    recordTitle: "ದಾಖಲೆಯ ಶೀರ್ಷಿಕೆ",
-    recordDescription: "ಟಿಪ್ಪಣಿಗಳು",
-    selectFile: "ಫೈಲ್ ಆಯ್ಕೆಮಾಡಿ (PDF, PNG, JPG)",
-    emptyHistoryTitle: "ಯಾವುದೇ ದಾಖಲೆಗಳು ಕಂಡುಬಂದಿಲ್ಲ",
-    emptyHistorySub: "ನಿಮ್ಮ ಪ್ರಿಸ್ಕ್ರಿಪ್ಷನ್ ಅಥವಾ ಸ್ಕ್ಯಾನ್ ವರದಿಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ.",
-    deleteRecord: "ಅಳಿಸಿ",
-    ocrExtractedFindings: "AI / OCR ಹೊರತೆಗೆದ ಸಂಶೋಧನೆಗಳು",
-
-    settingsTitle: "ಅಪ್ಲಿಕೇಶನ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳು",
-    themeLabel: "ಥೀಮ್ ಆಯ್ಕೆಮಾಡಿ",
-    themeLight: "ಲೈಟ್ ಮೋಡ್ (ಬಿಳಿ ಮತ್ತು ನೀಲಿ)",
-    themeDark: "ಡಾರ್ಕ್ ಮೋಡ್ (ಕಪ್ಪು ಮತ್ತು ನೀಲಿ)",
-    languageLabel: "ಭಾಷೆ ಆಯ್ಕೆ",
-    privacyPolicyNotice: "ಗೌಪ್ಯತೆ-ಮೂಲಕ-ವಿನ್ಯಾಸ ತತ್ವಗಳೊಂದಿಗೆ ವಿನ್ಯಾಸಗೊಳಿಸಲಾಗಿದೆ ಮತ್ತು ಭಾರತೀಯ ಡೇಟಾ ಸಂರಕ್ಷಣೆ ಮತ್ತು ABDM ಸಮ್ಮತಿ ಮಾನದಂಡಗಳಿಗೆ ಅನುಗುಣವಾಗಿದೆ.",
-
-    doctorQueueTitle: "ವೈದ್ಯರ ರೋಗಿಗಳ ಪಟ್ಟಿ",
-    searchPatientPlaceholder: "ರೋಗಿಯ ಐಡಿ (MK-P10001) ಅಥವಾ ಹೆಸರಿನಿಂದ ಹುಡುಕಿ...",
-    emptyQueueTitle: "ಸಾಲಿನಲ್ಲಿ ಯಾವುದೇ ರೋಗಿಗಳಿಲ್ಲ",
-    emptyQueueSub: "ಇಂಟೇಕ್ ಪೂರ್ಣಗೊಳಿಸಿದ ರೋಗಿಗಳು ಇಲ್ಲಿ ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಕಾಣಿಸಿಕೊಳ್ಳುತ್ತಾರೆ.",
-    caseReviewTitle: "ಕ್ಲಿನಿಕಲ್ ಕೇಸ್ ಪರಿಶೀಲನೆ",
-    chiefComplaint: "ಮುಖ್ಯ ಲಕ್ಷಣ",
-    hpiTitle: "ಪ್ರಸ್ತುತ ಅನಾರೋಗ್ಯದ ಇತಿಹಾಸ",
-    medicalHistorySection: "ಹಿಂದಿನ ವೈದ್ಯಕೀಯ ಇತಿಹಾಸ ಮತ್ತು ಔಷಧಿಗಳು",
-    documentsEvidenceSection: "ಅಪ್‌ಲೋಡ್ ಮಾಡಿದ ದಾಖಲೆಗಳು",
-    verifyFieldButton: "ದೃಢೀಕರಿಸಿ",
-    verifiedBadge: "ವೈದ್ಯರಿಂದ ಪರಿಶೀಲಿಸಲಾಗಿದೆ",
-    clinicalNotesLabel: "ವೈದ್ಯರ ಕ್ಲಿನಿಕಲ್ ಟಿಪ್ಪಣಿಗಳು",
-    prescriptionPlanLabel: "ಚಿಕಿತ್ಸಾ ಯೋಜನೆ ಮತ್ತು ಪ್ರಿಸ್ಕ್ರಿಪ್ಷನ್",
-    signOffCaseButton: "ಸಹಿ ಮಾಡಿ ಮುಕ್ತಾಯಗೊಳಿಸಿ",
-    signOffSuccess: "ಕೇಸ್ ಯಶಸ್ವಿಯಾಗಿ ಪರಿಶೀಲಿಸಲಾಗಿದೆ ಮತ್ತು ಸೈನ್ ಆಫ್ ಆಗಿದೆ!",
-    exportFhirButton: "FHIR R4 ರಫ್ತು ಮಾಡಿ",
-    doctorHistoryTab: "ಪರಿಶೀಲಿಸಿದ ಕೇಸ್‌ಗಳ ಇತಿಹಾಸ"
+    phone: "ದೂರವಾಣಿ ಸಂಖ್ಯೆ",
+    address: "ವಿಳಾಸ",
+    bloodGroup: "ರಕ್ತದ ಗುಂಪು (ಐಚ್ಛಿಕ)",
+    emergencyContact: "ತುರ್ತು ಸಂಪರ್ಕ ಸಂಖ್ಯೆ",
+    specialization: "ವಿಶೇಷತೆ",
+    signIn: "ಲಾಗಿನ್ ಮಾಡಿ",
+    signUp: "ಹೊಸ ಖಾತೆ ರಚಿಸಿ",
+    forgotPassword: "ಪಾಸ್‌ವರ್ಡ್ ಮರೆತಿರಾ?",
+    mandatoryConsentTitle: "ಕಡ್ಡಾಯ ವೈದ್ಯಕೀಯ ಸಮ್ಮತಿ ಮತ್ತು ಗೌಪ್ಯತೆ",
+    mandatoryConsentText: "ವೈದ್ಯರ ಭೇಟಿಗೆ ಮುಂಚಿತವಾಗಿ ನಿಮ್ಮ ಆರೋಗ್ಯ ವಿವರಗಳನ್ನು ಸಂಗ್ರಹಿಸಲು ಮೆಡಿಕಿಯೋಸ್ಕ್ ನಿಮ್ಮ ಸಮ್ಮತಿಯನ್ನು ಪಡೆಯುತ್ತದೆ. ನಿಮ್ಮ ವಿವರಗಳನ್ನು ಸಂಪೂರ್ಣ ಗೌಪ್ಯವಾಗಿ ರಕ್ಷಿಸಲಾಗುತ್ತದೆ.",
+    acceptConsent: "ನಾನು ಸಮ್ಮತಿಯನ್ನು ಅಂಗೀಕರಿಸುತ್ತೇನೆ",
+    rejectConsent: "ತಿರಸ್ಕರಿಸಿ",
+    consentWarning: "ಮುಂದುವರಿಯಲು ಕಡ್ಡಾಯ ಸಮ್ಮತಿ ಅಗತ್ಯವಿದೆ.",
+    home: "ಮುಖಪುಟ",
+    profile: "ಪ್ರೊಫೈಲ್",
+    history: "ವೈದ್ಯಕೀಯ ಇತಿಹಾಸ",
+    settings: "ಸೆಟ್ಟಿಂಗ್ಸ್",
+    logout: "ನಿರ್ಗಮಿಸಿ",
+    connectDoctor: "ವೈದ್ಯರೊಂದಿಗೆ ಸಂಪರ್ಕಿಸಿ",
+    connectedTo: "ಸಂಪರ್ಕಿತ ವೈದ್ಯರು",
+    searchDoctorPlaceholder: "ವೈದ್ಯರ ಐಡಿ (DK-XXXXXX) ಅಥವಾ ಹೆಸರು ನಮೂದಿಸಿ...",
+    connectBtn: "ಸಂಪರ್ಕಿಸಿ",
+    startIntakeBtn: "ಎಐ ಕ್ಲಿನಿಕಲ್ ಪ್ರಶ್ನೋತ್ತರ ಪ್ರಾರಂಭಿಸಿ",
+    intakeTitle: "ಪೂರ್ವ ಸಮಾಲೋಚನಾ ಇತಿಹಾಸ ಸಂಗ್ರಹಣೆ",
+    intakeSubtitle: "ಎಐ ಸಿದ್ಧಪಡಿಸುತ್ತದೆ; ವೈದ್ಯರು ಅಂತಿಮ ನಿರ್ಧಾರ ಕೈಗೊಳ್ಳುತ್ತಾರೆ.",
+    nextQuestion: "ಮುಂದಿನ ಪ್ರಶ್ನೆ",
+    submitAnswer: "ಉತ್ತರ ಸಲ್ಲಿಸಿ",
+    voiceInput: "ಧ್ವನಿ ಮೂಲಕ ಉತ್ತರ",
+    listening: "ಆಲಿಸುತ್ತಿದೆ... ಮಾತನಾಡಿ",
+    previousContext: "ಹಿಂದಿನ ಉತ್ತರಗಳು",
+    intakeComplete: "ಇತಿಹಾಸ ಸಂಗ್ರಹಣೆ ಪೂರ್ಣಗೊಂಡಿದೆ",
+    summaryPrepared: "ನಿಮ್ಮ ವೈದ್ಯಕೀಯ ಸಾರಾಂಶವನ್ನು ವೈದ್ಯರಿಗೆ ಕಳುಹಿಸಲಾಗಿದೆ.",
+    redFlagAlert: "ತುರ್ತು ವೈದ್ಯಕೀಯ ಗಮನ ಅಗತ್ಯ",
+    emptyHistoryTitle: "ವೈದ್ಯಕೀಯ ಇತಿಹಾಸ ಲಭ್ಯವಿಲ್ಲ",
+    emptyHistoryDesc: "ನೀವು ಇನ್ನು ಯಾವುದೇ ಇತಿಹಾಸವನ್ನು ದಾಖಲಿಸಿಲ್ಲ. ನಿಮ್ಮ ದಾಖಲೆ ಅಥವಾ ಹಿಂದಿನ ಔಷಧಿ ಚೀಟಿಯನ್ನು ಸೇರಿಸಿ.",
+    addRecord: "ದಾಖಲೆ ಸೇರಿಸಿ",
+    uploadDocument: "ದಾಖಲೆ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ",
+    uploadDesc: "ಪ್ರಿಸ್ಕ್ರಿಪ್ಷನ್, ಲ್ಯಾಬ್ ವರದಿ ಅಥವಾ ಎಕ್ಸ್‌ರೇ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ (PDF/PNG/JPG).",
+    doctorDashboard: "ವೈದ್ಯರ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್",
+    searchPatientPlaceholder: "ರೋಗಿಯ ಹೆಸರು ಅಥವಾ ಐಡಿ ಮೂಲಕ ಹುಡುಕಿ...",
+    assignedPatients: "ಸಂಪರ್ಕಿತ ರೋಗಿಗಳ ಪಟ್ಟಿ",
+    reviewCase: "ವಿವರಗಳನ್ನು ಪರಿಶೀಲಿಸಿ",
+    chiefComplaint: "ಮುಖ್ಯ ದೂರು",
+    hpi: "ಪ್ರಸ್ತುತ ಅನಾರೋಗ್ಯದ ಇತಿಹಾಸ",
+    pastHistory: "ಹಿಂದಿನ ಇತಿಹಾಸ",
+    medications: "ಪ್ರಸ್ತುತ ಔಷಧಗಳು",
+    allergies: "ಅಲರ್ಜಿಗಳು",
+    verifiedByDoctor: "ವೈದ್ಯರಿಂದ ಪರಿಶೀಲಿಸಲಾಗಿದೆ",
+    markVerified: "ದೃಢೀಕರಿಸಿ ಮತ್ತು ಪರಿಶೀಲಿಸಿ",
+    exportFhir: "FHIR R4 ರಫ್ತು ಮಾಡಿ",
+    theme: "ಥೀಮ್",
+    language: "ಭಾಷೆ",
+    lightTheme: "ಬೆಳಕಿನ ಥೀಮ್",
+    darkTheme: "ಡಾರ್ಕ್ ಥೀಮ್",
+    saveChanges: "ಉಳಿಸಿ",
+    profileUpdated: "ಪ್ರೊಫೈಲ್ ನವೀಕರಿಸಲಾಗಿದೆ."
   },
-
   ta: {
-    brandName: "மெடிகியோஸ்க்",
-    brandTagline: "மருத்துவ ஆலோசனைக்கு முந்தைய தகவல் பதிவு • SIH26047",
-    patientPortal: "நோயாளி போர்ட்டல்",
-    doctorPortal: "மருத்துவர் போர்ட்டல்",
-    triageDesk: "ட்ரியேஜ் டெஸ்க்",
-    fhirAbdm: "FHIR / ABDM",
-    signOut: "வெளியேறு",
-    audioHelp: "ஆடியோ உதவி",
-    audioOn: "ஆடியோ இயக்கத்தில் உள்ளது",
-    sos: "அவசர உதவி (SOS)",
-
-    patientLoginTab: "நோயாளி உள்நுழைவு",
-    doctorLoginTab: "மருத்துவர் உள்நுழைவு",
-    patientIdOrEmail: "நோயாளி ஐடி (எ.கா. MK-P10001) அல்லது தொலைபேசி / மின்னஞ்சல்",
-    doctorIdOrEmail: "மருத்துவர் ஐடி (எ.கா. MK-D10001) அல்லது மின்னஞ்சல்",
-    password: "கடவுச்சொல்",
-    newPassword: "புதிய கடவுச்சொல்",
-    confirmPassword: "கடவுச்சொல்லை உறுதிப்படுத்துக",
-    signInButton: "உள்நுழைக",
-    forgotPasswordButton: "கடவுச்சொல் மறந்துவிட்டதா?",
-    forgotPasswordModalTitle: "கடவுச்சொல்லை மீட்டமைக்கவும்",
-    resetPasswordSubmit: "புதிய கடவுச்சொல்லை அமைக்கவும்",
-    resetSuccess: "கடவுச்சொல் வெற்றிகரமாக மீட்டமைக்கப்பட்டது! இப்போது உள்நுழையலாம்.",
-    orContinueWith: "அல்லது இதன் மூலம் தொடரவும்",
-    signInWithGoogle: "கூகிள் மூலம் உள்நுழைக",
-    dontHaveAccount: "கணக்கு இல்லையா?",
-    alreadyHaveAccount: "ஏற்கனவே கணக்கு உள்ளதா?",
-    signUpButton: "புதிய கணக்கு பதிவு",
-    registerTitle: "புதிய கணக்கு உருவாக்குதல்",
-    registerAsPatient: "நோயாளி கணக்கு",
-    registerAsDoctor: "மருத்துவர் கணக்கு",
-
+    appName: "மெடிகியோஸ்க் (MediKiosk)",
+    tagline: "மருத்துவர் சந்திப்பிற்கு முன், ஏஐ மருத்துவ வரலாறு பதிவு செய்யும் முறைமை",
+    patientLogin: "நோயாளி உள்நுழைவு",
+    doctorLogin: "மருத்துவர் உள்நுழைவு",
+    patientId: "நோயாளி ஐடி (எ.கா: MK-000001)",
+    doctorId: "மருத்துவர் ஐடி (எ.கா: DK-000001)",
     fullName: "முழு பெயர்",
-    emailAddress: "மின்னஞ்சல் முகவரி",
-    phoneNumber: "கைபேசி எண்",
+    email: "மின்னஞ்சல் முகவரி",
+    password: "கடவுச்சொல்",
+    createPassword: "புதிய கடவுச்சொல்",
     age: "வயது",
-    gender: "பாலினம்",
-    genderMale: "ஆண்",
-    genderFemale: "பெண்",
-    genderOther: "மற்றவை",
+    phone: "தொலைபேசி எண்",
     address: "முகவரி",
-    bloodGroup: "இரத்த பிரிவு",
-    emergencyContactName: "அவசர தொடர்பு பெயர்",
-    emergencyContactPhone: "அவசர தொடர்பு எண்",
-    specialization: "மருத்துவ சிறப்பு",
-    licenseNumber: "மருத்துவ உரிம எண்",
-    preferredLanguage: "விருப்பமான மொழி",
-    mandatoryConsentLabel: "ABDM மற்றும் டிஜிட்டல் தனிநபர் தரவு பாதுகாப்பு (DPDP) சட்டத்தின் கீழ் எனது மருத்துவத் தகவலைச் சேகரித்து செயலாக்க நான் முழு மனதுடன் ஒப்புதல் அளிக்கிறேன்.",
-    consentAgreementLink: "ஒப்புதல் விதிமுறைகளைக் காண்க",
-    consentAgreementModalTitle: "நோயாளி ஒப்புதல் ஒப்பந்தம்",
-    consentAgreementBody: "மெடிகியோஸ்க் ஆயுஷ் அமைச்சகம் மற்றும் ABDM விதிமுறைகளின் கீழ் இயங்குகிறது. உங்கள் அறிகுறிகள், மருந்துகள் மற்றும் ஆவணங்களை மருத்துவரிடம் சமர்ப்பிக்க இந்த அமைப்பு உதவுகிறது. இது தானாகவே மருந்து பரிந்துரைக்காது.",
-    agreeAndClose: "நான் புரிந்து கொண்டு ஒப்புக்கொள்கிறேன்",
-
-    navHome: "முகப்பு",
-    navProfile: "சுயவிவரம்",
-    navHistory: "மருத்துவ வரலாறு",
-    navSettings: "அமைப்புகள்",
-
-    selectDoctorPrompt: "தொடங்குவதற்கு முன் மருத்துவர் ஐடி / பெயரைத் தேர்ந்தெடுக்கவும்",
-    selectDoctorPlaceholder: "மருத்துவரைத் தேடுக (எ.கா. MK-D10001)...",
-    assignedDoctor: "நியமிக்கப்பட்ட மருத்துவர்",
-    startIntakeButton: "கேள்வி-பதிலைத் தொடங்கவும்",
-    resumeIntakeButton: "தொடரவும்",
-    intakeProgress: "முன்னேற்றம்",
-    intakeCompleted: "முழுமையடைந்தது! மருத்துவர் மதிப்பாய்வுக்குத் தயார்.",
-    submitAnswer: "பதிலைச் சமர்ப்பித்து அடுத்த கேள்விக்குச் செல்க",
-    typeYourAnswer: "உங்கள் பதிலை உள்ளிடவும்...",
-    voiceInputButton: "குரல் மூலம் பேசுக",
-    voiceListening: "கேட்கிறது... தெளிவாகப் பேசுங்கள்",
-
-    profileTitle: "நோயாளி சுயவிவரம்",
-    patientIdLabel: "மெடிகியோஸ்க் ஐடி",
-    saveProfileChanges: "மாற்றங்களைச் சேமிக்கவும்",
-    profileSavedSuccess: "சுயவிவரம் புதுப்பிக்கப்பட்டது!",
-    consentStatusActive: "ஒப்புதல் நிலை: செயலில் உள்ளது",
-
-    historyTitle: "மருத்துவ ஆவணங்கள் & OCR",
-    uploadRecordButton: "ஆவணத்தைப் பதிவேற்றுக",
-    uploadModalTitle: "மருத்துவ ஆவணப் பதிவேற்றம் (மருந்து சீட்டு / ஸ்கேன் / பரிசோதனை)",
-    recordType: "ஆவண வகை",
-    recordTypePrescription: "மருந்துச் சீட்டு",
-    recordTypeLabTest: "பரிசோதனை அறிக்கை",
-    recordTypeScanReport: "ஸ்கேன் / எக்ஸ்ரே அறிக்கை",
-    recordTypeDischarge: "டிஸ்சார்ஜ் சுருக்கம்",
-    recordTitle: "ஆவணத் தலைப்பு",
-    recordDescription: "குறிப்புகள்",
-    selectFile: "கோப்பைத் தேர்ந்தெடுக்கவும் (PDF, PNG, JPG)",
-    emptyHistoryTitle: "ஆவணங்கள் எதுவும் இல்லை",
-    emptyHistorySub: "உங்கள் மருத்துவ ஆவணங்களை இங்கே பதிவேற்றலாம்.",
-    deleteRecord: "நீக்குக",
-    ocrExtractedFindings: "AI / OCR பிரித்தெடுத்த மருத்துவ விவரங்கள்",
-
-    settingsTitle: "அமைப்புகள்",
-    themeLabel: "வண்ண தீம்",
-    themeLight: "வெள்ளை & நீலம் (லைட் மோட்)",
-    themeDark: "இருண்ட நீலம் (டார்க் மோட்)",
-    languageLabel: "மொழி தேர்வு",
-    privacyPolicyNotice: "இந்திய தரவு பாதுகாப்பு மற்றும் ABDM ஒப்புதல் விதிமுறைகளின்படி வடிவமைக்கப்பட்டுள்ளது.",
-
-    doctorQueueTitle: "மருத்துவர் நோயாளிகள் வரிசை",
-    searchPatientPlaceholder: "நோயாளி ஐடி (MK-P10001) அல்லது பெயரால் தேடுக...",
-    emptyQueueTitle: "வரிசையில் நோயாளிகள் இல்லை",
-    emptyQueueSub: "தகவல் பதிவை முடித்த நோயாளிகள் இங்கே தோன்றுவார்கள்.",
-    caseReviewTitle: "மருத்துவ பரிசீலனை",
+    bloodGroup: "இரத்த வகை (விருப்பத்திற்குரியது)",
+    emergencyContact: "அவசர தொடர்பு எண்",
+    specialization: "சிறப்புத் துறை",
+    signIn: "உள்நுழைக",
+    signUp: "புதிய கணக்கு தொடங்குக",
+    forgotPassword: "கடவுச்சொல் மறந்துவிட்டதா?",
+    mandatoryConsentTitle: "கட்டாய மருத்துவ ஒப்புதல் மற்றும் தனியுரிமை",
+    mandatoryConsentText: "மருத்துவ ஆலோசனையை விரைவுபடுத்த உங்கள் உடல்நலத் தகவல்களை மெடிகியோஸ்க் பாதுகாப்பாகப் பதிவு செய்கிறது. உங்கள் தகவல்கள் பாதுகாக்கப்படும்.",
+    acceptConsent: "மருத்துவ தகவல் சேகரிப்பிற்கு ஒப்புதல் அளிக்கிறேன்",
+    rejectConsent: "மறுக்கிறேன்",
+    consentWarning: "தொடர கட்டாய ஒப்புதல் தேவை.",
+    home: "முகப்பு",
+    profile: "சுயவிவரம்",
+    history: "மருத்துவ வரலாறு",
+    settings: "அமைப்புகள்",
+    logout: "வெளியேறு",
+    connectDoctor: "மருத்துவருடன் இணைக",
+    connectedTo: "இணைக்கப்பட்ட மருத்துவர்",
+    searchDoctorPlaceholder: "மருத்துவர் ஐடி (DK-XXXXXX) அல்லது பெயரை உள்ளிடவும்...",
+    connectBtn: "இணைக",
+    startIntakeBtn: "ஏஐ மருத்துவக் கேள்விகளைத் தொடங்குக",
+    intakeTitle: "மருத்துவ ஆலோசனைக்கு முந்தைய வரலாறு",
+    intakeSubtitle: "ஏஐ தயார் செய்கிறது; மருத்துவர் இறுதி முடிவெடுக்கிறார்.",
+    nextQuestion: "அடுத்த கேள்வி",
+    submitAnswer: "பதிலை சமர்ப்பிக்கவும்",
+    voiceInput: "குரல் வழி பதில்",
+    listening: "கேட்கிறது... பேசவும்",
+    previousContext: "பதிவு செய்யப்பட்ட முந்தைய பதில்கள்",
+    intakeComplete: "வரலாறு பதிவு நிறைவடைந்தது",
+    summaryPrepared: "உங்கள் மருத்துவ சுருக்கம் மருத்துவருக்கு அனுப்பப்பட்டது.",
+    redFlagAlert: "அவசர மருத்துவக் கவனிப்பு பரிந்துரைக்கப்படுகிறது",
+    emptyHistoryTitle: "மருத்துவ வரலாறு எதுவும் இல்லை",
+    emptyHistoryDesc: "முந்தைய பதிவுகள் எதுவும் இல்லை. புதிய பதிவைச் சேர்க்கவும் அல்லது மருத்துவ ஆவணங்களை பதிவேற்றவும்.",
+    addRecord: "பதிவைச் சேர்க்க",
+    uploadDocument: "ஆவணத்தைப் பதிவேற்றவும்",
+    uploadDesc: "மருந்துச் சீட்டு, ஆய்வக அறிக்கை அல்லது எக்ஸ்ரே பதிவேற்றவும் (PDF/PNG/JPG).",
+    doctorDashboard: "மருத்துவர் முகப்பு",
+    searchPatientPlaceholder: "பெயர் அல்லது நோயாளி ஐடி மூலம் தேடவும்...",
+    assignedPatients: "இணைக்கப்பட்ட நோயாளிகள்",
+    reviewCase: "விவரங்களை மதிப்பாய்வு செய்க",
     chiefComplaint: "முக்கிய பிரச்சனை",
-    hpiTitle: "நோய் வரலாறு",
-    medicalHistorySection: "முந்தைய மருத்துவ வரலாறு & மருந்துகள்",
-    documentsEvidenceSection: "இணைக்கப்பட்ட ஆவணங்கள்",
-    verifyFieldButton: "சரிபார்",
-    verifiedBadge: "மருத்துவரால் சரிபார்க்கப்பட்டது",
-    clinicalNotesLabel: "மருத்துவரின் மருத்துவக் குறிப்புகள்",
-    prescriptionPlanLabel: "சிகிச்சைத் திட்டம் & மருந்துச் சீட்டு",
-    signOffCaseButton: "கையொப்பமிட்டு முடிக்கவும்",
-    signOffSuccess: "வழக்கு வெற்றிகரமாக சரிபார்க்கப்பட்டு கையொப்பமிடப்பட்டது!",
-    exportFhirButton: "FHIR R4 ஏற்றுமதி",
-    doctorHistoryTab: "மதிப்பாய்வு செய்யப்பட்ட வரலாறு"
+    hpi: "தற்போதைய நோய் வரலாறு",
+    pastHistory: "முந்தைய வரலாறு",
+    medications: "தற்போதைய மருந்துகள்",
+    allergies: "ஒவ்வாமை (Allergies)",
+    verifiedByDoctor: "மருத்துவரால் சரிபார்க்கப்பட்டது",
+    markVerified: "சரிபார்த்து உறுதிப்படுத்துக",
+    exportFhir: "FHIR R4 ஏற்றுமதி செய்க",
+    theme: "தோற்றம் (Theme)",
+    language: "மொழி",
+    lightTheme: "வெளிச்ச வடிவம்",
+    darkTheme: "இருண்ட வடிவம்",
+    saveChanges: "சேமி",
+    profileUpdated: "சுயவிவரம் புதுப்பிக்கப்பட்டது."
   },
-
   hi: {
-    brandName: "मेडीकियोस्क",
-    brandTagline: "परामर्श-पूर्व केस-टेकिंग • SIH26047",
-    patientPortal: "मरीज पोर्टल",
-    doctorPortal: "डॉक्टर पोर्टल",
-    triageDesk: "ट्राइएज डेस्क",
-    fhirAbdm: "FHIR / ABDM",
-    signOut: "साइन आउट",
-    audioHelp: "ऑडियो सहायता",
-    audioOn: "ऑडियो चालू है",
-    sos: "आपातकालीन (SOS)",
-
-    patientLoginTab: "मरीज लॉगिन",
-    doctorLoginTab: "डॉक्टर लॉगिन",
-    patientIdOrEmail: "मरीज आईडी (उदा. MK-P10001) या फोन / ईमेल",
-    doctorIdOrEmail: "डॉक्टर आईडी (उदा. MK-D10001) या ईमेल",
-    password: "पासवर्ड",
-    newPassword: "नया पासवर्ड",
-    confirmPassword: "पासवर्ड की पुष्टि करें",
-    signInButton: "लॉगिन करें",
-    forgotPasswordButton: "पासवर्ड भूल गए?",
-    forgotPasswordModalTitle: "पासवर्ड रीसेट करें",
-    resetPasswordSubmit: "नया पासवर्ड सेट करें",
-    resetSuccess: "पासवर्ड सफलतापूर्वक रीसेट हो गया! अब आप लॉगिन कर सकते हैं।",
-    orContinueWith: "या इसके साथ जारी रखें",
-    signInWithGoogle: "गूगल से लॉगिन करें",
-    dontHaveAccount: "खाता नहीं है?",
-    alreadyHaveAccount: "पहले से खाता है?",
-    signUpButton: "नया खाता बनाएं",
-    registerTitle: "नया खाता पंजीकरण",
-    registerAsPatient: "मरीज का खाता",
-    registerAsDoctor: "डॉक्टर का खाता",
-
+    appName: "मेडीकियोस्क (MediKiosk)",
+    tagline: "परामर्श-पूर्व, एआई-सहायक रोगी केस-टेकिंग सिस्टम",
+    patientLogin: "रोगी लॉगिन",
+    doctorLogin: "डॉक्टर लॉगिन",
+    patientId: "रोगी आईडी (उदा: MK-000001)",
+    doctorId: "डॉक्टर आईडी (उदा: DK-000001)",
     fullName: "पूरा नाम",
-    emailAddress: "ईमेल पता",
-    phoneNumber: "मोबाइल नंबर",
+    email: "ईमेल पता",
+    password: "पासवर्ड",
+    createPassword: "पासवर्ड बनाएं",
     age: "उम्र",
-    gender: "लिंग",
-    genderMale: "पुरुष",
-    genderFemale: "महिला",
-    genderOther: "अन्य",
-    address: "पता",
-    bloodGroup: "रक्त समूह",
-    emergencyContactName: "आपातकालीन संपर्क नाम",
-    emergencyContactPhone: "आपातकालीन संपर्क फोन",
+    phone: "फ़ोन नंबर",
+    address: "आवासीय पता",
+    bloodGroup: "रक्त समूह (वैकल्पिक)",
+    emergencyContact: "आपातकालीन संपर्क नंबर",
     specialization: "चिकित्सा विशेषज्ञता",
-    licenseNumber: "मेडिकल लाइसेंस नंबर",
-    preferredLanguage: "पसंदीदा भाषा",
-    mandatoryConsentLabel: "मैं ABDM और डिजिटल पर्सनल डेटा प्रोटेक्शन (DPDP) अधिनियम के तहत परामर्श हेतु अपने स्वास्थ्य डेटा के संग्रह और उपयोग के लिए स्पष्ट सहमति देता/देती हूँ।",
-    consentAgreementLink: "सहमति शर्तें देखें",
-    consentAgreementModalTitle: "मरीज सहमति समझौता",
-    consentAgreementBody: "मेडीकियोस्क आयुष मंत्रालय और ABDM के मानकों के अनुरूप परामर्श-पूर्व इतिहास तैयार करता है। यह प्रणाली स्वयं कोई दवा नहीं देती और न ही निदान करती है।",
-    agreeAndClose: "मुझे समझ आ गया और मैं सहमत हूँ",
-
-    navHome: "होम",
-    navProfile: "प्रोफाइल",
-    navHistory: "मेडिकल इतिहास",
-    navSettings: "सेटिंग्स",
-
-    selectDoctorPrompt: "शुरू करने से पहले डॉक्टर आईडी / नाम चुनें",
-    selectDoctorPlaceholder: "डॉक्टर खोजें (उदा. MK-D10001)...",
-    assignedDoctor: "नियुक्त चिकित्सक",
-    startIntakeButton: "केस-टेकिंग शुरू करें",
-    resumeIntakeButton: "प्रश्नावली जारी रखें",
-    intakeProgress: "प्रगति",
-    intakeCompleted: "प्रश्नावली पूर्ण! डॉक्टर समीक्षा के लिए तैयार।",
-    submitAnswer: "जवाब सबमिट करें और अगला प्रश्न",
-    typeYourAnswer: "अपना जवाब लिखें या नीचे विकल्प चुनें...",
-    voiceInputButton: "बोलकर जवाब दें",
-    voiceListening: "सुन रहा हूँ... कृपया स्पष्ट बोलें",
-
-    profileTitle: "मरीज प्रोफाइल",
-    patientIdLabel: "मेडीकियोस्क आईडी",
-    saveProfileChanges: "बदलाव सहेजें",
-    profileSavedSuccess: "प्रोफाइल सफलतापूर्वक अपडेट हो गई!",
-    consentStatusActive: "सहमति स्थिति: सक्रिय",
-
-    historyTitle: "मेडिकल रिकॉर्ड और OCR",
-    uploadRecordButton: "रिकॉर्ड अपलोड करें",
-    uploadModalTitle: "मेडिकल दस्तावेज अपलोड (पर्चा / स्कैन / लैब रिपोर्ट)",
-    recordType: "दस्तावेज प्रकार",
-    recordTypePrescription: "डॉक्टर का पर्चा",
-    recordTypeLabTest: "लैब टेस्ट रिपोर्ट",
-    recordTypeScanReport: "स्कैन / एक्स-रे रिपोर्ट",
-    recordTypeDischarge: "डिस्चार्ज समरी",
-    recordTitle: "दस्तावेज का शीर्षक",
-    recordDescription: "टिप्पणी",
-    selectFile: "फाइल चुनें (PDF, PNG, JPG)",
-    emptyHistoryTitle: "कोई रिकॉर्ड नहीं मिला",
-    emptyHistorySub: "अपनी पुरानी पर्चियां या रिपोर्ट यहां अपलोड करें।",
-    deleteRecord: "हटाएं",
-    ocrExtractedFindings: "AI / OCR द्वारा निकाले गए निष्कर्ष",
-
-    settingsTitle: "सेटिंग्स",
-    themeLabel: "डिस्प्ले थीम",
-    themeLight: "लाइट मोड (सफेद और नीला)",
-    themeDark: "डार्क मोड (गहरा स्लेट और नीला)",
-    languageLabel: "भाषा चुनें",
-    privacyPolicyNotice: "गोपनीयता-दर-डिज़ाइन सिद्धांतों के अनुसार विकसित और ABDM सहमति नियमों के अनुरूप।",
-
-    doctorQueueTitle: "डॉक्टर मरीज कतार",
-    searchPatientPlaceholder: "मरीज आईडी (MK-P10001) या नाम से खोजें...",
-    emptyQueueTitle: "कतार में कोई मरीज नहीं है",
-    emptyQueueSub: "इंटेक पूरा करने वाले मरीज यहां स्वतः दिखाई देंगे।",
-    caseReviewTitle: "क्लीनिकल केस समीक्षा",
+    signIn: "साइन इन करें",
+    signUp: "नया खाता बनाएं",
+    forgotPassword: "पासवर्ड भूल गए?",
+    mandatoryConsentTitle: "अनिवार्य नैदानिक सहमति और डेटा गोपनीयता",
+    mandatoryConsentText: "डॉक्टर से मिलने से पहले आपके लक्षणों और चिकित्सा इतिहास को दर्ज करने के लिए मेडीकियोस्क आपकी सहमति लेता है। आपका डेटा पूरी तरह सुरक्षित रहेगा।",
+    acceptConsent: "मैं नैदानिक इतिहास दर्ज करने की सहमति देता/देती हूँ",
+    rejectConsent: "अस्वीकार करें",
+    consentWarning: "आगे बढ़ने के लिए सहमति अनिवार्य है।",
+    home: "होम",
+    profile: "प्रोफ़ाइल",
+    history: "चिकित्सा इतिहास",
+    settings: "सेटिंग्स",
+    logout: "लॉगआउट",
+    connectDoctor: "डॉक्टर से कनेक्ट करें",
+    connectedTo: "संबंधित डॉक्टर",
+    searchDoctorPlaceholder: "डॉक्टर आईडी (DK-XXXXXX) या नाम दर्ज करें...",
+    connectBtn: "डॉक्टर जोड़ें",
+    startIntakeBtn: "एआई नैदानिक बातचीत शुरू करें",
+    intakeTitle: "परामर्श-पूर्व केस तैयारी",
+    intakeSubtitle: "एआई केस तैयार करता है; अंतिम निर्णय डॉक्टर का होता है।",
+    nextQuestion: "अगला प्रश्न",
+    submitAnswer: "उत्तर सबमिट करें",
+    voiceInput: "आवाज द्वारा उत्तर",
+    listening: "सुन रहा हूँ... बोलिए",
+    previousContext: "दर्ज किए गए पिछले उत्तर",
+    intakeComplete: "केस टेकिंग पूर्ण हुआ",
+    summaryPrepared: "आपका केस सारांश तैयार कर डॉक्टर को भेज दिया गया है।",
+    redFlagAlert: "प्राथमिकता नैदानिक मूल्यांकन की सिफारिश",
+    emptyHistoryTitle: "कोई चिकित्सा इतिहास उपलब्ध नहीं है",
+    emptyHistoryDesc: "वर्तमान में कोई इतिहास दर्ज नहीं है। कृपया अपनी पिछली बीमारी या पुरानी पर्ची जोड़ें।",
+    addRecord: "इतिहास जोड़ें",
+    uploadDocument: "दस्तावेज़ अपलोड करें",
+    uploadDesc: "डॉक्टर की पर्ची, लैब रिपोर्ट या एक्स-रे अपलोड करें (PDF/PNG/JPG)।",
+    doctorDashboard: "डॉक्टर डैशबोर्ड",
+    searchPatientPlaceholder: "नाम या रोगी आईडी (MK-XXXXXX) से खोजें...",
+    assignedPatients: "कनेक्टेड मरीजों की सूची",
+    reviewCase: "केस सारांश देखें",
     chiefComplaint: "मुख्य समस्या",
-    hpiTitle: "वर्तमान बीमारी का इतिहास",
-    medicalHistorySection: "पिछला मेडिकल इतिहास और दवाएं",
-    documentsEvidenceSection: "संलग्न दस्तावेज",
-    verifyFieldButton: "सत्यापित करें",
-    verifiedBadge: "डॉक्टर द्वारा सत्यापित",
-    clinicalNotesLabel: "डॉक्टर के क्लीनिकल नोट्स",
-    prescriptionPlanLabel: "उपचार योजना और पर्चा",
-    signOffCaseButton: "हस्ताक्षर करें और समाप्त करें",
-    signOffSuccess: "केस सफलतापूर्वक सत्यापित और हस्ताक्षरित हो गया!",
-    exportFhirButton: "FHIR R4 निर्यात",
-    doctorHistoryTab: "समीक्षित केस इतिहास"
+    hpi: "वर्तमान बीमारी का विवरण",
+    pastHistory: "पिछला चिकित्सा इतिहास",
+    medications: "वर्तमान दवाएं",
+    allergies: "एलर्जी",
+    verifiedByDoctor: "डॉक्टर द्वारा सत्यापित",
+    markVerified: "पुष्टि करें और सत्यापित करें",
+    exportFhir: "FHIR R4 एक्सपोर्ट करें",
+    theme: "थीम",
+    language: "भाषा",
+    lightTheme: "लाइट मोड",
+    darkTheme: "डार्क मोड",
+    saveChanges: "सहेजें",
+    profileUpdated: "प्रोफ़ाइल सफलतापूर्वक अपडेट की गई।"
   }
 };

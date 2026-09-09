@@ -1,585 +1,283 @@
 -- ==============================================================================
--- MediKiosk Normalized Database Schema (PostgreSQL / Supabase)
--- Smart India Hackathon 2026 — Problem Statement SIH26047
+-- MediKiosk Database Schema
+-- Smart India Hackathon 2026 — Problem Statement SIH26047 (Ministry of Ayush)
+-- "Pre-consultation, AI-assisted patient case-taking system"
+--
+-- NOTE: ZERO dummy/mock data. Pure DDL schema and atomic identifier sequences.
 -- ==============================================================================
 
--- Enable UUID extension
+-- Enable UUID extension if not enabled
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ------------------------------------------------------------------------------
--- ENUM TYPES
+-- 1. Atomic Identifier Sequences (MK-000001 / DK-000001)
 -- ------------------------------------------------------------------------------
-
-CREATE TYPE user_role AS ENUM (
-    'PATIENT',
-    'DOCTOR',
-    'TRIAGE_STAFF',
-    'ADMIN'
+CREATE TABLE IF NOT EXISTS id_sequences (
+    prefix VARCHAR(10) PRIMARY KEY,
+    last_val BIGINT NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TYPE identifier_type AS ENUM (
-    'INTERNAL_MEDIKIOSK_ID',
-    'ABHA_NUMBER',
-    'ABHA_ADDRESS',
-    'HOSPITAL_PATIENT_ID',
-    'AADHAAR_REFERENCE'
-);
+-- Initialize sequence rows if not existing
+INSERT INTO id_sequences (prefix, last_val) 
+VALUES ('MK', 0), ('DK', 0)
+ON CONFLICT (prefix) DO NOTHING;
 
-CREATE TYPE clinical_data_source AS ENUM (
-    'PATIENT_INTERVIEW',
-    'DOCTOR_INPUT',
-    'OCR',
-    'DOCUMENT_AI',
-    'PREVIOUS_RECORD',
-    'AYUSH_INTERVIEW',
-    'SYSTEM_RULE'
-);
+-- Function to atomically generate next formatted ID
+CREATE OR REPLACE FUNCTION get_next_formatted_id(p_prefix VARCHAR)
+RETURNS VARCHAR AS $$
+DECLARE
+    next_num BIGINT;
+    formatted_id VARCHAR;
+BEGIN
+    UPDATE id_sequences
+    SET last_val = last_val + 1,
+        updated_at = NOW()
+    WHERE prefix = p_prefix
+    RETURNING last_val INTO next_num;
 
-CREATE TYPE consent_status AS ENUM (
-    'GRANTED',
-    'DENIED',
-    'REVOKED'
-);
-
-CREATE TYPE consent_category AS ENUM (
-    'CLINICAL_HISTORY',
-    'VOICE_PROCESSING',
-    'MEDICAL_DOCUMENTS',
-    'DOCTOR_SHARING',
-    'HIS_SHARING',
-    'ABDM_SHARING',
-    'RESEARCH_ANALYTICS'
-);
-
-CREATE TYPE session_status AS ENUM (
-    'INITIATED',
-    'CONSENT_PENDING',
-    'IN_PROGRESS',
-    'AWAITING_DOCUMENTS',
-    'PROCESSING_AI',
-    'READY_FOR_REVIEW',
-    'DOCTOR_REVIEWING',
-    'COMPLETED',
-    'ABANDONED'
-);
-
-CREATE TYPE red_flag_severity AS ENUM (
-    'LOW',
-    'MODERATE',
-    'HIGH',
-    'CRITICAL'
-);
-
-CREATE TYPE triage_status AS ENUM (
-    'ACTIVE',
-    'ACKNOWLEDGED',
-    'UNDER_REVIEW',
-    'ESCALATED',
-    'CLOSED'
-);
-
-CREATE TYPE verification_action AS ENUM (
-    'CONFIRMED',
-    'EDITED',
-    'REJECTED',
-    'ADDED'
-);
-
-CREATE TYPE document_type AS ENUM (
-    'PRESCRIPTION',
-    'LAB_REPORT',
-    'DISCHARGE_SUMMARY',
-    'IMAGING_REPORT',
-    'OTHER'
-);
+    formatted_id := p_prefix || '-' || LPAD(next_num::TEXT, 6, '0');
+    RETURN formatted_id;
+END;
+$$ LANGUAGE plpgsql;
 
 -- ------------------------------------------------------------------------------
--- 1. USERS & PROFILES
+-- 2. User Profiles (Extends auth.users or standalone users)
 -- ------------------------------------------------------------------------------
-
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    email VARCHAR(255) UNIQUE,
-    phone VARCHAR(32) UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    role user_role NOT NULL DEFAULT 'PATIENT',
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE patients (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    medikiosk_id VARCHAR(32) UNIQUE NOT NULL, -- Format: MK-P10001
-    full_name VARCHAR(255) NOT NULL,
-    date_of_birth DATE,
-    age INT,
-    gender VARCHAR(32) NOT NULL,
-    phone VARCHAR(32) NOT NULL,
-    email VARCHAR(255),
-    address TEXT,
-    blood_group VARCHAR(16),
-    emergency_contact_name VARCHAR(255),
-    emergency_contact_phone VARCHAR(32),
-    preferred_language VARCHAR(32) NOT NULL DEFAULT 'en',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE doctors (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    doctor_id VARCHAR(32) UNIQUE NOT NULL, -- Format: MK-D10001
-    full_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
-    phone VARCHAR(32) NOT NULL,
-    specialization VARCHAR(128) DEFAULT 'General Medicine',
+    hashed_password VARCHAR(255),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('patient', 'doctor', 'triage', 'admin')),
+    full_name VARCHAR(255) NOT NULL,
     age INT,
+    phone VARCHAR(50),
     address TEXT,
-    blood_group VARCHAR(16),
-    emergency_contact_phone VARCHAR(32),
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    blood_group VARCHAR(10),
+    emergency_contact VARCHAR(50),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE patient_identifiers (
+CREATE INDEX IF NOT EXISTS idx_profiles_email ON profiles(email);
+CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
+
+-- ------------------------------------------------------------------------------
+-- 3. Patient Identifiers (MK-000001 & ABHA mapping)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS patient_identifiers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    identifier_type identifier_type NOT NULL,
-    identifier_value VARCHAR(255) NOT NULL,
-    issuing_system VARCHAR(128) NOT NULL DEFAULT 'MediKiosk',
-    verified BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    medikiosk_id VARCHAR(20) UNIQUE NOT NULL,
+    abha_number VARCHAR(50),
+    abha_address VARCHAR(100),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE doctor_patient_relationships (
+CREATE INDEX IF NOT EXISTS idx_patient_identifiers_medikiosk_id ON patient_identifiers(medikiosk_id);
+CREATE INDEX IF NOT EXISTS idx_patient_identifiers_profile_id ON patient_identifiers(profile_id);
+
+-- ------------------------------------------------------------------------------
+-- 4. Doctor Identifiers (DK-000001)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS doctor_identifiers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    doctor_id UUID NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
-    status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    doctor_id VARCHAR(20) UNIQUE NOT NULL,
+    specialization VARCHAR(100) DEFAULT 'General Medicine',
+    department VARCHAR(100) DEFAULT 'OPD',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE patient_access (
+CREATE INDEX IF NOT EXISTS idx_doctor_identifiers_doctor_id ON doctor_identifiers(doctor_id);
+CREATE INDEX IF NOT EXISTS idx_doctor_identifiers_profile_id ON doctor_identifiers(profile_id);
+
+-- ------------------------------------------------------------------------------
+-- 5. Mandatory Consents
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS consents (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    doctor_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    encounter_id UUID,
-    granted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMPTZ NOT NULL,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    consent_type VARCHAR(100) NOT NULL DEFAULT 'clinical_intake_and_privacy',
+    consent_status VARCHAR(20) NOT NULL CHECK (consent_status IN ('granted', 'revoked')),
+    consent_version VARCHAR(20) NOT NULL DEFAULT 'v1.0',
+    consent_text TEXT NOT NULL,
+    ip_address VARCHAR(50),
+    granted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE medical_history (
+CREATE INDEX IF NOT EXISTS idx_consents_user_id ON consents(user_id);
+
+-- ------------------------------------------------------------------------------
+-- 6. Doctor-Patient Connection Relationships
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS doctor_patient_relationships (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    record_type VARCHAR(64) NOT NULL, -- 'SCAN', 'XRAY', 'PRESCRIPTION', 'LAB_REPORT', 'ALLERGY', 'SURGERY'
+    patient_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    doctor_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'cancelled')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_dpr_patient ON doctor_patient_relationships(patient_id);
+CREATE INDEX IF NOT EXISTS idx_dpr_doctor ON doctor_patient_relationships(doctor_id);
+
+-- ------------------------------------------------------------------------------
+-- 7. Clinical Intake Sessions & Interviews
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS clinical_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    patient_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    doctor_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+    session_status VARCHAR(30) NOT NULL DEFAULT 'in_progress' CHECK (session_status IN ('in_progress', 'completed', 'aborted')),
+    language VARCHAR(10) NOT NULL DEFAULT 'en',
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    completed_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_clinical_sessions_patient ON clinical_sessions(patient_id);
+CREATE INDEX IF NOT EXISTS idx_clinical_sessions_doctor ON clinical_sessions(doctor_id);
+
+CREATE TABLE IF NOT EXISTS clinical_interviews (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    session_id UUID NOT NULL REFERENCES clinical_sessions(id) ON DELETE CASCADE,
+    patient_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    current_node_id VARCHAR(100),
+    is_completed BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS clinical_answers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    interview_id UUID NOT NULL REFERENCES clinical_interviews(id) ON DELETE CASCADE,
+    question_id VARCHAR(100) NOT NULL,
+    section VARCHAR(100) NOT NULL,
+    question_text TEXT NOT NULL,
+    answer_text TEXT NOT NULL,
+    structured_data JSONB DEFAULT '{}'::jsonb,
+    audio_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_clinical_answers_interview ON clinical_answers(interview_id);
+
+CREATE TABLE IF NOT EXISTS clinical_entities (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    session_id UUID NOT NULL REFERENCES clinical_sessions(id) ON DELETE CASCADE,
+    patient_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    category VARCHAR(100) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    value TEXT NOT NULL,
+    confidence NUMERIC(4,3) DEFAULT 1.0,
+    source VARCHAR(50) DEFAULT 'patient_answer',
+    doctor_verified BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_clinical_entities_session ON clinical_entities(session_id);
+
+-- ------------------------------------------------------------------------------
+-- 8. Patient Medical History (Conditions, Surgeries, Medications, Allergies)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS medical_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    patient_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    category VARCHAR(50) NOT NULL CHECK (category IN ('condition', 'surgery', 'medication', 'allergy', 'family', 'social', 'investigation')),
     title VARCHAR(255) NOT NULL,
-    description TEXT,
-    file_path TEXT,
-    date_recorded DATE NOT NULL DEFAULT CURRENT_DATE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    details JSONB DEFAULT '{}'::jsonb,
+    date_recorded DATE DEFAULT CURRENT_DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_medical_history_patient ON medical_history(patient_id);
 
 -- ------------------------------------------------------------------------------
--- 2. CLINICAL SESSIONS & CONSENT
+-- 9. Medical Documents & OCR Extracted Entities
 -- ------------------------------------------------------------------------------
-
-CREATE TABLE clinical_sessions (
+CREATE TABLE IF NOT EXISTS medical_documents (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    session_status session_status NOT NULL DEFAULT 'INITIATED',
-    mode VARCHAR(32) NOT NULL DEFAULT 'STANDARD', -- 'STANDARD' or 'AYUSH'
-    current_step VARCHAR(64) NOT NULL DEFAULT 'CONSENT',
-    selected_language VARCHAR(32) NOT NULL DEFAULT 'en',
-    chief_complaint_text TEXT,
-    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    completed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE consents (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    session_id UUID REFERENCES clinical_sessions(id) ON DELETE CASCADE,
-    consent_type consent_category NOT NULL,
-    status consent_status NOT NULL DEFAULT 'GRANTED',
-    version VARCHAR(32) NOT NULL DEFAULT '1.0',
-    language VARCHAR(32) NOT NULL DEFAULT 'en',
-    audio_confirmation_recorded BOOLEAN NOT NULL DEFAULT FALSE,
-    revoked_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- ------------------------------------------------------------------------------
--- 3. INTERVIEWS, QUESTIONS & RAW ANSWERS
--- ------------------------------------------------------------------------------
-
-CREATE TABLE interviews (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    session_id UUID NOT NULL REFERENCES clinical_sessions(id) ON DELETE CASCADE,
-    current_node_id VARCHAR(64) NOT NULL DEFAULT 'CHIEF_COMPLAINT',
-    is_completed BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE questions (
-    id VARCHAR(64) PRIMARY KEY, -- e.g., 'CHIEF_COMPLAINT_ONSET'
-    section VARCHAR(64) NOT NULL,
-    question_text_en TEXT NOT NULL,
-    question_text_ta TEXT,
-    question_text_hi TEXT,
-    input_type VARCHAR(32) NOT NULL DEFAULT 'text', -- 'text', 'choice', 'voice', 'scale'
-    is_required BOOLEAN NOT NULL DEFAULT TRUE,
-    clinical_category VARCHAR(64) NOT NULL
-);
-
-CREATE TABLE answers (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    interview_id UUID NOT NULL REFERENCES interviews(id) ON DELETE CASCADE,
-    question_id VARCHAR(64) NOT NULL REFERENCES questions(id),
-    raw_answer_text TEXT NOT NULL,
-    audio_transcript TEXT,
-    input_method VARCHAR(32) NOT NULL DEFAULT 'touch', -- 'voice', 'touch', 'keyboard'
-    confidence NUMERIC(4, 3) NOT NULL DEFAULT 1.000,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- ------------------------------------------------------------------------------
--- 4. STRUCTURED CLINICAL FACTS (Evidence-linked with Source & Confidence)
--- ------------------------------------------------------------------------------
-
-CREATE TABLE clinical_entities (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    session_id UUID NOT NULL REFERENCES clinical_sessions(id) ON DELETE CASCADE,
-    entity_type VARCHAR(64) NOT NULL, -- 'SYMPTOM', 'CONDITION', 'MEDICATION', 'ALLERGY'
-    entity_name VARCHAR(255) NOT NULL,
-    attributes JSONB NOT NULL DEFAULT '{}'::jsonb,
-    source clinical_data_source NOT NULL DEFAULT 'PATIENT_INTERVIEW',
-    confidence NUMERIC(4, 3) NOT NULL DEFAULT 1.000,
-    doctor_verified BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE medical_conditions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    session_id UUID REFERENCES clinical_sessions(id) ON DELETE SET NULL,
-    condition_name VARCHAR(255) NOT NULL,
-    icd10_code VARCHAR(32),
-    status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE', -- 'ACTIVE', 'HISTORICAL', 'SUSPECTED'
-    diagnosed_year INT,
-    source clinical_data_source NOT NULL DEFAULT 'PATIENT_INTERVIEW',
-    confidence NUMERIC(4, 3) NOT NULL DEFAULT 1.000,
-    doctor_verified BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE surgical_history (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    session_id UUID REFERENCES clinical_sessions(id) ON DELETE SET NULL,
-    procedure_name VARCHAR(255) NOT NULL,
-    indication TEXT,
-    approximate_date DATE,
-    hospital_name VARCHAR(255),
-    outcome VARCHAR(64),
-    source clinical_data_source NOT NULL DEFAULT 'PATIENT_INTERVIEW',
-    confidence NUMERIC(4, 3) NOT NULL DEFAULT 1.000,
-    doctor_verified BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE medications (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    session_id UUID REFERENCES clinical_sessions(id) ON DELETE SET NULL,
-    drug_name VARCHAR(255) NOT NULL,
-    dosage VARCHAR(64),
-    frequency VARCHAR(64),
-    route VARCHAR(32) DEFAULT 'Oral',
-    duration VARCHAR(64),
-    status VARCHAR(32) NOT NULL DEFAULT 'CURRENT', -- 'CURRENT', 'DISCONTINUED'
-    source clinical_data_source NOT NULL DEFAULT 'PATIENT_INTERVIEW',
-    confidence NUMERIC(4, 3) NOT NULL DEFAULT 1.000,
-    doctor_verified BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE allergies (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    session_id UUID REFERENCES clinical_sessions(id) ON DELETE SET NULL,
-    allergen VARCHAR(255) NOT NULL,
-    reaction_nature TEXT,
-    severity VARCHAR(32) NOT NULL DEFAULT 'MODERATE', -- 'MILD', 'MODERATE', 'SEVERE'
-    source clinical_data_source NOT NULL DEFAULT 'PATIENT_INTERVIEW',
-    confidence NUMERIC(4, 3) NOT NULL DEFAULT 1.000,
-    doctor_verified BOOLEAN NOT NULL DEFAULT FALSE,
-    contradiction_flag BOOLEAN NOT NULL DEFAULT FALSE,
-    contradiction_notes TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE family_history (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    session_id UUID REFERENCES clinical_sessions(id) ON DELETE SET NULL,
-    relation VARCHAR(64) NOT NULL,
-    condition_name VARCHAR(255) NOT NULL,
-    source clinical_data_source NOT NULL DEFAULT 'PATIENT_INTERVIEW',
-    confidence NUMERIC(4, 3) NOT NULL DEFAULT 1.000,
-    doctor_verified BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE personal_history (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    session_id UUID REFERENCES clinical_sessions(id) ON DELETE SET NULL,
-    diet_type VARCHAR(64),
-    sleep_pattern VARCHAR(64),
-    physical_activity VARCHAR(64),
-    smoking_status VARCHAR(64),
-    alcohol_status VARCHAR(64),
-    source clinical_data_source NOT NULL DEFAULT 'PATIENT_INTERVIEW',
-    confidence NUMERIC(4, 3) NOT NULL DEFAULT 1.000,
-    doctor_verified BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE investigations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    session_id UUID REFERENCES clinical_sessions(id) ON DELETE SET NULL,
-    document_id UUID,
-    test_name VARCHAR(255) NOT NULL,
-    result_value VARCHAR(128) NOT NULL,
-    unit VARCHAR(64),
-    reference_range VARCHAR(128),
-    is_abnormal BOOLEAN NOT NULL DEFAULT FALSE,
-    test_date DATE,
-    source clinical_data_source NOT NULL DEFAULT 'OCR',
-    confidence NUMERIC(4, 3) NOT NULL DEFAULT 1.000,
-    doctor_verified BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- ------------------------------------------------------------------------------
--- 5. DOCUMENTS & OCR EXTRACTION
--- ------------------------------------------------------------------------------
-
-CREATE TABLE documents (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    session_id UUID REFERENCES clinical_sessions(id) ON DELETE SET NULL,
-    document_type document_type NOT NULL DEFAULT 'PRESCRIPTION',
+    patient_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     file_name VARCHAR(255) NOT NULL,
-    file_path TEXT NOT NULL,
-    mime_type VARCHAR(64) NOT NULL,
-    file_size_bytes BIGINT NOT NULL,
-    ocr_raw_text TEXT,
-    ocr_status VARCHAR(32) NOT NULL DEFAULT 'PENDING', -- 'PENDING', 'PROCESSED', 'FAILED'
-    has_handwriting BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    file_type VARCHAR(50) NOT NULL,
+    file_size BIGINT,
+    storage_path TEXT NOT NULL,
+    ocr_status VARCHAR(30) NOT NULL DEFAULT 'completed' CHECK (ocr_status IN ('pending', 'processing', 'completed', 'failed')),
+    ocr_text TEXT,
+    ocr_confidence NUMERIC(4,3) DEFAULT 0.95,
+    uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE document_entities (
+CREATE INDEX IF NOT EXISTS idx_medical_docs_patient ON medical_documents(patient_id);
+
+CREATE TABLE IF NOT EXISTS document_entities (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
-    entity_type VARCHAR(64) NOT NULL,
-    entity_key VARCHAR(128) NOT NULL,
+    document_id UUID NOT NULL REFERENCES medical_documents(id) ON DELETE CASCADE,
+    entity_type VARCHAR(50) NOT NULL,
+    entity_name VARCHAR(255) NOT NULL,
     entity_value TEXT NOT NULL,
-    confidence NUMERIC(4, 3) NOT NULL DEFAULT 0.850,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    confidence NUMERIC(4,3) DEFAULT 0.95,
+    verified BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- ------------------------------------------------------------------------------
--- 6. MEDICAL TIMELINE (Chronological unified events)
+-- 10. Unified Medical Timeline
 -- ------------------------------------------------------------------------------
-
-CREATE TABLE medical_timeline (
+CREATE TABLE IF NOT EXISTS medical_timeline (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    session_id UUID REFERENCES clinical_sessions(id) ON DELETE SET NULL,
+    patient_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     event_date DATE NOT NULL,
-    event_type VARCHAR(64) NOT NULL, -- 'DIAGNOSIS', 'MEDICATION', 'LAB_RESULT', 'SURGERY', 'AYUSH_RECORD'
+    event_type VARCHAR(50) NOT NULL,
     title VARCHAR(255) NOT NULL,
     description TEXT,
-    source clinical_data_source NOT NULL,
-    confidence NUMERIC(4, 3) NOT NULL DEFAULT 1.000,
-    document_id UUID REFERENCES documents(id) ON DELETE SET NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    source VARCHAR(50) NOT NULL CHECK (source IN ('history', 'document', 'interview', 'summary')),
+    source_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ------------------------------------------------------------------------------
--- 7. AYUSH ASSESSMENTS (Structured Dashavidha Pariksha + Ahara-Vihara)
--- ------------------------------------------------------------------------------
-
-CREATE TABLE ayush_assessments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    session_id UUID NOT NULL REFERENCES clinical_sessions(id) ON DELETE CASCADE,
-    -- Dashavidha Pariksha Parameters (Structured)
-    prakriti JSONB NOT NULL DEFAULT '{"primary": "Vata-Pitta", "vata_score": 0, "pitta_score": 0, "kapha_score": 0}'::jsonb,
-    vikriti JSONB NOT NULL DEFAULT '{"imbalance": "Pitta", "dosha_status": "Aggravated"}'::jsonb,
-    sara VARCHAR(64) DEFAULT 'Madhyama', -- Tissue excellence: Pravara, Madhyama, Avara
-    samhanana VARCHAR(64) DEFAULT 'Madhyama', -- Compactness/Build
-    pramana JSONB NOT NULL DEFAULT '{"height_cm": null, "weight_kg": null, "assessment": "Madhyama"}'::jsonb,
-    satmya VARCHAR(64) DEFAULT 'Madhyama', -- Habituation/Adaptability
-    sattva VARCHAR(64) DEFAULT 'Madhyama', -- Mental endurance: Pravara, Madhyama, Avara
-    ahara_shakti JSONB NOT NULL DEFAULT '{"abhyavaharana_shakti": "Madhyama", "jarana_shakti": "Madhyama"}'::jsonb,
-    vyayama_shakti VARCHAR(64) DEFAULT 'Madhyama', -- Physical work capacity
-    vaya VARCHAR(64) DEFAULT 'Madhyama', -- Age group: Bala, Madhyama, Vriddha
-    -- Ahara-Vihara Assessment
-    ahara_vihara JSONB NOT NULL DEFAULT '{
-        "meal_timing": "Regular",
-        "appetite": "Moderate",
-        "food_preferences": "Warm, Cooked",
-        "water_intake_liters": 2.5,
-        "daily_routine": "Regular",
-        "sleep_duration_hours": 7,
-        "sleep_quality": "Sound",
-        "physical_exercise": "Brisk walking 30 mins"
-    }'::jsonb,
-    doctor_verified BOOLEAN NOT NULL DEFAULT FALSE,
-    doctor_notes TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+CREATE INDEX IF NOT EXISTS idx_timeline_patient_date ON medical_timeline(patient_id, event_date DESC);
 
 -- ------------------------------------------------------------------------------
--- 8. SAFETY ENGINE: RED FLAGS & TRIAGE ALERTS
+-- 11. AI Medical Summaries & Doctor Reviews
 -- ------------------------------------------------------------------------------
-
-CREATE TABLE red_flags (
+CREATE TABLE IF NOT EXISTS medical_summaries (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     session_id UUID NOT NULL REFERENCES clinical_sessions(id) ON DELETE CASCADE,
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    rule_id VARCHAR(64) NOT NULL,
-    severity red_flag_severity NOT NULL DEFAULT 'HIGH',
-    title VARCHAR(255) NOT NULL,
-    clinical_recommendation TEXT NOT NULL DEFAULT 'Priority clinical assessment recommended',
-    triggered_criteria JSONB NOT NULL DEFAULT '[]'::jsonb,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    patient_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    doctor_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+    summary_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    red_flags JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE triage_alerts (
+CREATE INDEX IF NOT EXISTS idx_summaries_patient ON medical_summaries(patient_id);
+CREATE INDEX IF NOT EXISTS idx_summaries_doctor ON medical_summaries(doctor_id);
+
+CREATE TABLE IF NOT EXISTS doctor_reviews (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    red_flag_id UUID NOT NULL REFERENCES red_flags(id) ON DELETE CASCADE,
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    status triage_status NOT NULL DEFAULT 'ACTIVE',
-    acknowledged_by UUID REFERENCES users(id) ON DELETE SET NULL,
-    acknowledged_at TIMESTAMPTZ,
-    action_taken TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    summary_id UUID NOT NULL REFERENCES medical_summaries(id) ON DELETE CASCADE,
+    doctor_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    notes TEXT,
+    status VARCHAR(30) NOT NULL DEFAULT 'reviewed' CHECK (status IN ('reviewed', 'amended')),
+    reviewed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- ------------------------------------------------------------------------------
--- 9. LONGITUDINAL AI CASE SUMMARIES
+-- 12. Security Audit Logs
 -- ------------------------------------------------------------------------------
-
-CREATE TABLE summaries (
+CREATE TABLE IF NOT EXISTS audit_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    session_id UUID NOT NULL REFERENCES clinical_sessions(id) ON DELETE CASCADE,
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    chief_complaint_summary TEXT NOT NULL,
-    hpi_summary TEXT NOT NULL,
-    past_history_summary TEXT NOT NULL,
-    medications_summary TEXT NOT NULL,
-    allergies_summary TEXT NOT NULL,
-    investigations_summary TEXT NOT NULL,
-    ayush_summary TEXT,
-    contradictions_summary TEXT,
-    red_flags_summary TEXT,
-    evidence_links JSONB NOT NULL DEFAULT '[]'::jsonb,
-    is_finalized BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+    action VARCHAR(100) NOT NULL,
+    resource_type VARCHAR(100) NOT NULL,
+    resource_id VARCHAR(100),
+    details JSONB DEFAULT '{}'::jsonb,
+    ip_address VARCHAR(50),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE summary_sections (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    summary_id UUID NOT NULL REFERENCES summaries(id) ON DELETE CASCADE,
-    section_name VARCHAR(64) NOT NULL,
-    section_content TEXT NOT NULL,
-    evidence_count INT NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- ------------------------------------------------------------------------------
--- 10. DOCTOR REVIEWS & FIELD-LEVEL VERIFICATIONS
--- ------------------------------------------------------------------------------
-
-CREATE TABLE doctor_reviews (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    session_id UUID NOT NULL REFERENCES clinical_sessions(id) ON DELETE CASCADE,
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    doctor_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    field_verifications JSONB NOT NULL DEFAULT '[]'::jsonb,
-    clinical_notes TEXT,
-    provisional_plan TEXT,
-    verified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    is_signed_off BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- ------------------------------------------------------------------------------
--- 11. AUDIT LOGS & IMMUTABLE TRAILS
--- ------------------------------------------------------------------------------
-
-CREATE TABLE audit_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    patient_id UUID REFERENCES patients(id) ON DELETE SET NULL,
-    session_id UUID REFERENCES clinical_sessions(id) ON DELETE SET NULL,
-    action_type VARCHAR(64) NOT NULL, -- 'CONSENT_GRANTED', 'ACCESS_DOCTOR', 'DATA_EXTRACTED', 'VERIFICATION'
-    resource_accessed VARCHAR(128) NOT NULL,
-    ip_address VARCHAR(64),
-    user_agent TEXT,
-    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- ------------------------------------------------------------------------------
--- 12. FHIR & ABDM EXPORTS
--- ------------------------------------------------------------------------------
-
-CREATE TABLE fhir_exports (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    session_id UUID NOT NULL REFERENCES clinical_sessions(id) ON DELETE CASCADE,
-    doctor_review_id UUID REFERENCES doctor_reviews(id) ON DELETE SET NULL,
-    bundle_json JSONB NOT NULL,
-    fhir_version VARCHAR(32) NOT NULL DEFAULT 'R4',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- ------------------------------------------------------------------------------
--- INDEXES FOR HIGH-PERFORMANCE QUERYING
--- ------------------------------------------------------------------------------
-
-CREATE INDEX idx_patients_medikiosk_id ON patients(medikiosk_id);
-CREATE INDEX idx_patient_identifiers_patient_id ON patient_identifiers(patient_id);
-CREATE INDEX idx_clinical_sessions_patient_id ON clinical_sessions(patient_id);
-CREATE INDEX idx_clinical_sessions_status ON clinical_sessions(session_status);
-CREATE INDEX idx_answers_interview_id ON answers(interview_id);
-CREATE INDEX idx_clinical_entities_session_id ON clinical_entities(session_id);
-CREATE INDEX idx_medications_patient_id ON medications(patient_id);
-CREATE INDEX idx_allergies_patient_id ON allergies(patient_id);
-CREATE INDEX idx_timeline_patient_id_date ON medical_timeline(patient_id, event_date DESC);
-CREATE INDEX idx_red_flags_session_id ON red_flags(session_id);
-CREATE INDEX idx_triage_alerts_status ON triage_alerts(status);
-CREATE INDEX idx_audit_logs_patient_id ON audit_logs(patient_id);
+CREATE INDEX IF NOT EXISTS idx_audit_user_id ON audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at DESC);

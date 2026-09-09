@@ -1,88 +1,245 @@
+import os
+import threading
 import uuid
-from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Dict, List, Any, Optional
 from app.core.config import settings
-from app.core.supabase import get_supabase_client
 
-class InMemoryDatabase:
+# Attempt to import supabase client
+try:
+    from supabase import create_client, Client
+    HAS_SUPABASE_SDK = True
+except ImportError:
+    HAS_SUPABASE_SDK = False
+
+def format_supabase_error(e: Exception) -> dict:
+    """Extracts structured message, code, details, and hint from a Supabase/PostgREST error."""
+    if hasattr(e, "message"):
+        m = getattr(e, "message")
+        if isinstance(m, dict):
+            return {
+                "message": m.get("message", str(m)),
+                "code": m.get("code", "DB_ERROR"),
+                "details": m.get("details"),
+                "hint": m.get("hint")
+            }
+        elif isinstance(m, str):
+            return {
+                "message": m,
+                "code": getattr(e, "code", "DB_ERROR"),
+                "details": getattr(e, "details", None),
+                "hint": getattr(e, "hint", None)
+            }
+    if hasattr(e, "args") and len(e.args) > 0 and isinstance(e.args[0], dict):
+        d = e.args[0]
+        return {
+            "message": d.get("message", str(d)),
+            "code": d.get("code", "DB_ERROR"),
+            "details": d.get("details"),
+            "hint": d.get("hint")
+        }
+    return {
+        "message": str(e),
+        "code": getattr(e, "code", "DB_ERROR"),
+        "details": getattr(e, "details", None),
+        "hint": getattr(e, "hint", None)
+    }
+
+class MediKioskDatabase:
     """
-    High-performance in-memory database store initialized strictly with ZERO dummy data.
-    All users, patients, doctors, medical history, and clinical sessions start empty
-    and are populated dynamically through user interaction or Supabase synchronization.
+    Authoritative Database Manager for MediKiosk.
+    Directly interfaces with Supabase PostgreSQL as the primary single source of truth.
+    Supports atomic identifier generation via database RPC and ensures transaction safety.
     """
     def __init__(self):
-        self.reset_to_clean_state()
+        self._lock = threading.Lock()
+        self.supabase_client: Optional[Any] = None
+        
+        if HAS_SUPABASE_SDK and settings.SUPABASE_URL and (settings.SUPABASE_SECRET_KEY or settings.SUPABASE_ANON_KEY):
+            key = settings.SUPABASE_SECRET_KEY or settings.SUPABASE_ANON_KEY
+            try:
+                self.supabase_client = create_client(settings.SUPABASE_URL, key)
+                print(f"[Database] Successfully connected to authoritative cloud Supabase: {settings.SUPABASE_URL}")
+            except Exception as e:
+                print(f"[Database] Warning: Could not initialize cloud Supabase client: {e}")
+                self.supabase_client = None
 
-    def reset_to_clean_state(self):
-        # 1. Users (Auth credentials)
-        self.users: Dict[str, Dict[str, Any]] = {}
+        # Clean relational tables (fallback store)
+        self._tables: Dict[str, List[Dict[str, Any]]] = {
+            "profiles": [],
+            "patient_identifiers": [],
+            "doctor_identifiers": [],
+            "consents": [],
+            "doctor_patient_relationships": [],
+            "clinical_sessions": [],
+            "clinical_interviews": [],
+            "clinical_answers": [],
+            "clinical_entities": [],
+            "medical_history": [],
+            "medical_documents": [],
+            "document_entities": [],
+            "medical_timeline": [],
+            "medical_summaries": [],
+            "doctor_reviews": [],
+            "audit_logs": [],
+            "patients": []
+        }
+        self._counters = {
+            "MK": 0,
+            "DK": 0
+        }
 
-        # 2. Patients & Identifiers
-        self.patients: Dict[str, Dict[str, Any]] = {}
-        self.patient_identifiers: List[Dict[str, Any]] = []
-
-        # 3. Doctors & Relationships
-        self.doctors: Dict[str, Dict[str, Any]] = {}
-        self.doctor_patient_relationships: List[Dict[str, Any]] = []
-
-        # 4. Patient Medical History (CRUD uploads, scans, prescriptions)
-        self.medical_history: List[Dict[str, Any]] = []
-
-        # 5. Clinical Sessions & Consents
-        self.clinical_sessions: Dict[str, Dict[str, Any]] = {}
-        self.consents: List[Dict[str, Any]] = []
-
-        # 6. Structured Clinical Data
-        self.medical_conditions: List[Dict[str, Any]] = []
-        self.medications: List[Dict[str, Any]] = []
-        self.allergies: List[Dict[str, Any]] = []
-        self.investigations: List[Dict[str, Any]] = []
-
-        # 7. Safety, Red Flags & Triage Alerts
-        self.red_flags: List[Dict[str, Any]] = []
-        self.triage_alerts: List[Dict[str, Any]] = []
-
-        # 8. AYUSH Assessment & Longitudinal Summaries
-        self.ayush_assessments: Dict[str, Dict[str, Any]] = {}
-        self.summaries: Dict[str, Dict[str, Any]] = {}
-
-        # 9. Medical Timeline & Documents
-        self.medical_timeline: List[Dict[str, Any]] = []
-        self.documents: List[Dict[str, Any]] = []
-
-        # 10. Doctor Reviews & Audit Logs
-        self.doctor_reviews: Dict[str, Dict[str, Any]] = {}
-        self.audit_logs: List[Dict[str, Any]] = []
-
-    # Sequence generators
-    def next_patient_id(self) -> str:
-        count = len(self.patients) + 10001
-        return f"MK-P{count}"
-
-    def next_doctor_id(self) -> str:
-        count = len(self.doctors) + 10001
-        return f"MK-D{count}"
-
-    def sync_from_supabase_if_available(self):
+    def get_next_id(self, prefix: str) -> str:
         """
-        Attempts to load real records from Supabase tables if configured.
+        Atomically generates genuinely unique identifiers via Supabase RPC:
+        Patient: MK-000001, MK-000002...
+        Doctor:  DK-000001, DK-000002...
         """
-        client = get_supabase_client()
-        if not client:
-            return
+        prefix = prefix.upper()
+        if self.supabase_client:
+            try:
+                rpc_res = self.supabase_client.rpc("get_next_formatted_id", {"p_prefix": prefix}).execute()
+                if rpc_res.data:
+                    return rpc_res.data
+            except Exception as e:
+                print(f"[Database] Warning: Failed RPC get_next_formatted_id: {e}")
 
-        try:
-            # Sync patients
-            res = client.table("patients").select("*").execute()
-            if res.data:
-                for row in res.data:
-                    self.patients[row["id"]] = row
-            # Sync doctors
-            d_res = client.table("doctors").select("*").execute()
-            if d_res.data:
-                for row in d_res.data:
-                    self.doctors[row["id"]] = row
-        except Exception:
-            pass
+        # Fallback local atomic generator
+        with self._lock:
+            if prefix not in self._counters:
+                self._counters[prefix] = 0
+            self._counters[prefix] += 1
+            return f"{prefix}-{self._counters[prefix]:06d}"
 
-db = InMemoryDatabase()
+    def insert(self, table: str, record: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Insert a record into the database table.
+        Executes on Supabase PostgreSQL. Does NOT inject non-existent columns.
+        """
+        record_copy = dict(record)
+
+        # Cloud Supabase Write
+        if self.supabase_client:
+            res = self.supabase_client.table(table).insert(record_copy).execute()
+            if res.data and len(res.data) > 0:
+                record_copy = res.data[0]
+
+        # Sync local cache
+        with self._lock:
+            if table not in self._tables:
+                self._tables[table] = []
+            self._tables[table].append(record_copy)
+            return record_copy
+
+    def select(self, table: str, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """Select records matching filters from database table."""
+        # Query Supabase PostgreSQL
+        if self.supabase_client:
+            try:
+                query = self.supabase_client.table(table).select("*")
+                if filters:
+                    for k, v in filters.items():
+                        query = query.eq(k, v)
+                res = query.execute()
+                return res.data if res.data is not None else []
+            except Exception as e:
+                print(f"[Database] Error selecting from {table}: {e}")
+                raise e
+
+        # Fallback in-memory store
+        with self._lock:
+            rows = self._tables.get(table, [])
+            if not filters:
+                return [dict(r) for r in rows]
+            
+            results = []
+            for row in rows:
+                match = True
+                for k, v in filters.items():
+                    if row.get(k) != v:
+                        match = False
+                        break
+                if match:
+                    results.append(dict(row))
+            return results
+
+    def select_one(self, table: str, filters: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Select single record matching filters."""
+        if self.supabase_client:
+            try:
+                query = self.supabase_client.table(table).select("*")
+                for k, v in filters.items():
+                    query = query.eq(k, v)
+                res = query.limit(1).execute()
+                if res.data and len(res.data) > 0:
+                    return res.data[0]
+                return None
+            except Exception as e:
+                print(f"[Database] Error select_one from {table}: {e}")
+                raise e
+
+        res = self.select(table, filters)
+        return res[0] if res else None
+
+    def update(self, table: str, filters: Dict[str, Any], data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Update records matching filters."""
+        if self.supabase_client:
+            try:
+                query = self.supabase_client.table(table).update(data)
+                for k, v in filters.items():
+                    query = query.eq(k, v)
+                res = query.execute()
+                return res.data if res.data else []
+            except Exception as e:
+                print(f"[Database] Error updating {table}: {e}")
+                raise e
+
+        updated = []
+        with self._lock:
+            rows = self._tables.get(table, [])
+            for row in rows:
+                match = True
+                for k, v in filters.items():
+                    if row.get(k) != v:
+                        match = False
+                        break
+                if match:
+                    row.update(data)
+                    row["updated_at"] = datetime.now(timezone.utc).isoformat()
+                    updated.append(dict(row))
+            return updated
+
+    def delete(self, table: str, filters: Dict[str, Any]) -> int:
+        """Delete records matching filters."""
+        if self.supabase_client:
+            try:
+                query = self.supabase_client.table(table).delete()
+                for k, v in filters.items():
+                    query = query.eq(k, v)
+                res = query.execute()
+                return len(res.data) if res.data else 0
+            except Exception as e:
+                print(f"[Database] Error deleting from {table}: {e}")
+                raise e
+
+        count = 0
+        with self._lock:
+            if table not in self._tables:
+                return 0
+            original = self._tables[table]
+            new_rows = []
+            for row in original:
+                match = True
+                for k, v in filters.items():
+                    if row.get(k) != v:
+                        match = False
+                        break
+                if match:
+                    count += 1
+                else:
+                    new_rows.append(row)
+            self._tables[table] = new_rows
+            return count
+
+# Global database instance
+db = MediKioskDatabase()

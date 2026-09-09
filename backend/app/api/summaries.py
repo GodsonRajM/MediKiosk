@@ -1,43 +1,47 @@
-from fastapi import APIRouter, HTTPException
-from typing import Dict, Any
+from fastapi import APIRouter, HTTPException, status, Depends
+from typing import Optional, Dict, Any
+
 from app.core.database import db
-from app.api.interviews import session_answers
-from app.ai.summary_service import summary_service
+from app.core.security import get_current_user
 
-router = APIRouter(prefix="/summaries", tags=["Longitudinal AI Case Summaries"])
+router = APIRouter(prefix="/summaries", tags=["Medical Summaries"])
 
-@router.get("/{session_id}")
-async def get_case_summary(session_id: str):
-    summary = db.summaries.get(session_id)
+@router.get("/latest")
+def get_latest_summary(current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("sub")
+    summaries = db.select("medical_summaries", {"patient_id": user_id})
+    if not summaries:
+        return {"summary": None, "red_flags": []}
+    
+    latest = summaries[-1]
+    return {
+        "summary": latest.get("summary_json"),
+        "red_flags": latest.get("red_flags", []),
+        "id": latest.get("id"),
+        "created_at": latest.get("created_at")
+    }
+
+@router.get("/{summary_id}")
+def get_summary_by_id(summary_id: str, current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("sub")
+    role = current_user.get("role")
+    
+    summary = db.select_one("medical_summaries", {"id": summary_id})
     if not summary:
-        session = db.clinical_sessions.get(session_id, {})
-        patient_id = session.get("patient_id")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Summary not found")
 
-        answers = session_answers.get(session_id, {})
-        conditions = [c for c in db.medical_conditions if c.get("patient_id") == patient_id]
-        medications = [m for m in db.medications if m.get("patient_id") == patient_id]
-        allergies = [a for a in db.allergies if a.get("patient_id") == patient_id]
-        investigations = [i for i in db.investigations if i.get("patient_id") == patient_id]
-        documents = [d for d in db.documents if d.get("patient_id") == patient_id]
-        red_flags = [f for f in db.red_flags if f.get("session_id") == session_id and f.get("is_active")]
+    # Authorization
+    if role == "patient" and summary.get("patient_id") != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    
+    if role == "doctor":
+        # Check doctor authorization for this patient
+        rel = db.select_one("doctor_patient_relationships", {
+            "doctor_id": user_id,
+            "patient_id": summary.get("patient_id"),
+            "status": "active"
+        })
+        if not rel and summary.get("doctor_id") != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Doctor not authorized for this patient's summary")
 
-        previous_records = {
-            "conditions": conditions,
-            "medications": medications,
-            "allergies": allergies,
-            "investigations": investigations,
-            "documents": documents,
-            "answers": answers,
-            "red_flags": red_flags
-        }
-
-        generated = await summary_service.generate_summary(session, previous_records)
-        summary = {
-            "id": "gen-" + session_id[:8],
-            "session_id": session_id,
-            "patient_id": patient_id,
-            **generated,
-            "is_finalized": False
-        }
-        db.summaries[session_id] = summary
     return summary

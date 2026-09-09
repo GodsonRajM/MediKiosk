@@ -1,80 +1,83 @@
-# MediKiosk End-to-End Demo Walkthrough
+# MediKiosk End-to-End Real-Data Workflow & Demo Guide
+Smart India Hackathon 2026 — Problem Statement SIH26047
 
-> **Smart India Hackathon 2026 — Problem Statement SIH26047**  
-> *Target Scenario*: Demo Patient `MK-000001` (Sundaram Ramaswamy, 52M, Tamil)
-
----
-
-## 🎯 The Primary Golden Path Scenario
-
-### Patient Profile
-- **Identifier**: `MK-000001`
-- **Demographics**: 52-year-old male, Tamil native speaker
-- **Chief Complaint**: Retrosternal chest tightness and breathlessness for 2 days on exertion
-- **Pre-existing History**: Type 2 Diabetes (2018), Hypertension (2020)
-- **Current Medications**: Metformin 500mg BD, Amlodipine 5mg OD
-- **Allergy Contradiction**: Hospital record notes Penicillin hypersensitivity; patient verbally denies allergies during intake
-- **Recent Lab Data**: Uploads lab report showing HbA1c 8.2% (uncontrolled)
+> *"MediKiosk moves clinical history-taking from inside the doctor's 3-minute consultation to before the consultation."*  
+> *"AI prepares the case; the doctor owns the clinical decision."*  
+> **Rule**: ZERO dummy data. Every patient and doctor account is genuinely registered through the app.
 
 ---
 
-## 👣 Step-by-Step Walkthrough
+## 👣 Step-by-Step Complete Walkthrough
 
-### Phase 1: Patient Kiosk Interaction
-1. **Welcome & Language**:
-   - Patient touches screen or selects language: **Tamil (தமிழ்)** or **English**.
-   - Kiosk adjusts voice synthesis and text immediately.
-2. **Identification & Login**:
-   - Enter `MK-000001` or phone number `+91 98765 43210` with instant demo OTP verification.
-3. **Multi-Category Consent**:
-   - Explains in plain Tamil/English: Clinical History, Voice Processing, Document OCR, Doctor Sharing.
-   - Patient grants consent with optional voice confirmation.
-4. **Chief Complaint**:
-   - Voice or touch entry: *"Chest pain and shortness of breath for past two days"*.
-5. **Deterministic Clinical Interview**:
-   - Question Graph triggers HPI chain:
-     - Onset (Sudden / Gradual)
-     - Severity (6 / 10)
-     - Character (Pressure / Heaviness)
-     - Aggravating factors (Walking briskly / Climbing stairs)
-     - Relieving factors (Rest)
-     - Associated symptoms (Breathlessness)
-6. **AYUSH Intake**:
-   - Dashavidha Pariksha questions: Prakriti assessment, Agni/Ahara Shakti, Vyayama Shakti.
-   - Ahara-Vihara lifestyle habits captured in structured categories.
-7. **Document Scanning & OCR**:
-   - Patient scans/uploads lab report.
-   - Document AI extracts HbA1c: 8.2%, flagged as abnormal with 97% confidence.
-8. **Real-time Safety Alert**:
-   - Deterministic Red-Flag Engine triggers:
-     - Rule: `RULE_CHEST_PAIN_EXERTIONAL_SOB`
-     - Text: *"Priority clinical assessment recommended"*
-     - Alert dispatched in real time to Triage Staff desk.
+### Phase 1: Real Doctor Registration
+1. Open [http://localhost:3000](http://localhost:3000).
+2. Click **DOCTOR LOGIN** at top.
+3. Click **Create New Account**.
+4. Fill in:
+   - Full Name: `Dr. Rajesh Varma`
+   - Email: `dr.rajesh@hospital.org`
+   - Password: `DoctorPass123!`
+   - Age: `45`, Phone: `+919876543210`
+   - Specialization: `Cardiology / OPD`
+   - Mandatory Consent: Check *"I understand and grant mandatory consent"*.
+5. Click **Register & Generate Doctor ID**.
+6. System assigns a genuine unique ID (e.g. `DK-000001`) and redirects to Doctor Portal.
+7. Click Logout to prepare for patient intake.
 
 ---
 
-### Phase 2: Triage Staff Console
-1. Triage nurse sees high-priority red alert for `MK-000001`.
-2. Acknowledges alert, checks vitals, and assigns immediate doctor room priority.
+### Phase 2: Real Patient Registration & Consent
+1. On the main login page, click **PATIENT LOGIN**.
+2. Click **Create New Account**.
+3. Fill in:
+   - Full Name: `Suresh Patel`
+   - Email: `suresh.patel@hospital.org`
+   - Password: `PatientPass123!`
+   - Age: `54`, Phone: `+919811122233`
+   - Address: `Ahmedabad, Gujarat`
+   - Mandatory Consent: Check *"Mandatory Clinical Intake & Privacy Consent"*.
+4. Click **Register & Generate Patient ID**.
+5. System assigns a genuine unique ID (e.g. `MK-000001`) and enters Patient Portal.
 
 ---
 
-### Phase 3: Doctor Consultation Portal
-1. Doctor logs into `/doctor` portal.
-2. `MK-000001` appears at the top of the queue marked **HIGH PRIORITY / RED FLAG**.
-3. Doctor opens case:
-   - Views AI Longitudinal Summary with evidence badges.
-   - Inspects Medical Timeline merging 2018 Diabetes, 2020 Hypertension, 2026 HbA1c 8.2%, and current acute chest pain.
-   - Notices **Allergy Contradiction Alert**: Historical Penicillin allergy vs. patient's verbal intake. Doctor confirms allergy status with patient.
-   - Reviews structured AYUSH Dashavidha Pariksha findings.
-4. Doctor uses granular verification controls:
-   - Confirms Metformin and Amlodipine adherence.
-   - Verifies HbA1c lab extraction against original uploaded document scan.
-   - Signs off on final clinical case record.
+### Phase 3: Patient Connects to Doctor & Takes AI Intake
+1. On the Patient Home Page:
+   - Under **Connect with your Doctor**, enter `DK-000001` or select `Dr. Rajesh Varma`.
+   - Click **Connect Doctor**.
+2. Active connection is confirmed. Click **Begin AI Clinical Intake**.
+3. Step through the Clinical Question Graph:
+   - **Chief Complaint**: Select `Chest Pain / Discomfort`.
+   - **Duration**: Select `1 to 3 days`.
+   - **Severity**: Select `9 - 10: Critical (Unbearable)`.
+   - **Associated Symptoms**: Select `Shortness of breath / Breathing difficulty`.
+   - The deterministic Red-Flag Engine instantly triggers:  
+     *"Priority Clinical Assessment Recommended (Potential Acute Cardiopulmonary Presentation)"*.
+   - Complete remaining past conditions, allergies, and regular medications.
+4. The AI synthesizes the pre-consultation clinical summary and securely routes it to Dr. Rajesh Varma's queue.
 
 ---
 
-### Phase 4: Interoperability Export
-1. Doctor clicks **Export FHIR R4 JSON**.
-2. System produces fully compliant HL7 FHIR Bundle with `Patient`, `Condition`, `Observation`, `MedicationStatement`, `AllergyIntolerance`.
-3. Demonstrates mock ABDM M1/M2/M3 transaction.
+### Phase 4: Patient Adds History & Uploads Documents
+1. Open the left sliding drawer menu and select **Medical History**.
+2. Notice the initial clean empty state: *"No Medical History Available"*.
+3. Click **Add Medical Record**:
+   - Category: `Allergy`
+   - Title: `Penicillin Allergy`
+   - Click Save. Notice the record appears instantly in the chronological timeline!
+4. Under **Upload Medical Document**:
+   - Upload a test prescription or lab report (PDF/JPG/PNG).
+   - Gemini Vision OCR extracts text and structured clinical entities.
+   - The upload is recorded in the medical timeline.
+
+---
+
+### Phase 5: Doctor Reviews Case, Red Flags & Verifies
+1. Log into Doctor Portal using `DK-000001` and password.
+2. In the **Connected Patients Queue**, observe `Suresh Patel` (`MK-000001`) with an active **Red Flag** alert.
+3. Click **Review Clinical Case**:
+   - Inspect the prominent **Red-Flag Banner**.
+   - Review the structured **AI Pre-Consultation Summary**: Chief complaint, HPI narrative, conditions, and medications.
+   - Review the patient's **Medical Timeline** and uploaded OCR documents.
+4. Click **Confirm & Verify Clinical Summary** (*"AI prepares the case; the doctor owns the clinical decision"*).
+5. Click **Export HL7 FHIR R4 Bundle** to preview and download standard interoperable FHIR JSON.

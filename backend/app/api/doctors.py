@@ -1,240 +1,190 @@
-import uuid
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, status, Depends, Query
 from typing import List, Dict, Any, Optional
-from datetime import datetime
-from app.schemas.doctor import DoctorQueueItem, FieldVerificationRequest, SignOffRequest, DoctorReviewResponse
+from datetime import datetime, timezone
+import uuid
+
 from app.core.database import db
 from app.core.security import get_current_user
-from app.core.supabase import get_supabase_client
+from app.integrations.fhir_adapter import fhir_adapter
 
-router = APIRouter(prefix="/doctors", tags=["Doctor Portal & Clinical Verification"])
+router = APIRouter(prefix="/doctors", tags=["Doctor Portal"])
 
 @router.get("")
-async def list_doctors():
-    """Returns list of registered doctors for patient kiosk intake assignment."""
-    docs = []
-    for d in db.doctors.values():
-        docs.append({
+def list_available_doctors():
+    """
+    Returns list of genuine registered doctors so patients can select or verify on the home page.
+    """
+    doctors = db.select("profiles", {"role": "doctor"})
+    result = []
+    for d in doctors:
+        doc_id_row = db.select_one("doctor_identifiers", {"profile_id": d["id"]})
+        result.append({
             "id": d["id"],
-            "doctor_id": d["doctor_id"],
-            "full_name": d["full_name"],
-            "specialization": d.get("specialization", "General Physician"),
-            "email": d.get("email"),
-            "phone": d.get("phone")
+            "name": d["full_name"],
+            "doctor_id": doc_id_row["doctor_id"] if doc_id_row else "DK-000000",
+            "specialization": doc_id_row.get("specialization", "General Medicine") if doc_id_row else "General Medicine"
         })
-    return docs
+    return result
 
-@router.get("/search")
-async def search_doctors(q: str = Query(..., description="Search doctor by name or ID")):
-    query = q.strip().lower()
-    results = []
-    for d in db.doctors.values():
-        if (
-            query in d.get("doctor_id", "").lower() or
-            query in d.get("full_name", "").lower() or
-            query in d.get("specialization", "").lower()
-        ):
-            results.append({
-                "id": d["id"],
-                "doctor_id": d["doctor_id"],
-                "full_name": d["full_name"],
-                "specialization": d.get("specialization", "General Physician")
-            })
-    return results
-
-@router.post("/connect")
-async def connect_doctor_patient(payload: Dict[str, Any], current_user: Dict[str, Any] = Depends(get_current_user)):
-    patient_id = payload.get("patient_id")
-    doctor_id = payload.get("doctor_id")
-
-    if not patient_id or not doctor_id:
-        raise HTTPException(status_code=400, detail="Both patient_id and doctor_id are required.")
-
-    # Match doctor by ID or MK-D...
-    real_doc_id = doctor_id
-    if doctor_id not in db.doctors:
-        for d in db.doctors.values():
-            if d.get("doctor_id") == doctor_id or d.get("id") == doctor_id:
-                real_doc_id = d["id"]
-                break
-
-    rel_id = str(uuid.uuid4())
-    rel = {
-        "id": rel_id,
-        "patient_id": patient_id,
-        "doctor_id": real_doc_id,
-        "status": "ACTIVE",
-        "created_at": datetime.utcnow().isoformat()
-    }
-    db.doctor_patient_relationships.append(rel)
-
-    sb = get_supabase_client()
-    if sb:
-        try:
-            sb.table("doctor_patient_relationships").insert(rel).execute()
-        except Exception:
-            pass
-
-    return {"status": "SUCCESS", "relationship": rel}
-
-@router.get("/queue", response_model=List[DoctorQueueItem])
-async def get_doctor_queue(current_user: Dict[str, Any] = Depends(get_current_user)):
-    queue = []
+@router.get("/profile")
+def get_doctor_profile(current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("sub")
+    profile = db.select_one("profiles", {"id": user_id})
+    if not profile or profile.get("role") != "doctor":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Doctor access required")
     
-    # Check sessions
-    for s_id, session in db.clinical_sessions.items():
-        p_id = session["patient_id"]
-        patient = db.patients.get(p_id)
-        if not patient:
-            # Match by medikiosk_id if needed
-            for p in db.patients.values():
-                if p["id"] == p_id or p.get("medikiosk_id") == p_id:
-                    patient = p
-                    break
-        if not patient:
-            continue
+    clean = dict(profile)
+    clean.pop("hashed_password", None)
+    
+    did = db.select_one("doctor_identifiers", {"profile_id": user_id})
+    clean["doctor_id"] = did["doctor_id"] if did else None
+    clean["specialization"] = did.get("specialization", "General Medicine") if did else "General Medicine"
+    return clean
 
-        has_flags = any(f.get("session_id") == s_id and f.get("is_active") for f in db.red_flags)
-        flag_count = len([f for f in db.red_flags if f.get("session_id") == s_id and f.get("is_active")])
+@router.get("/patients")
+def get_assigned_patients(current_user: dict = Depends(get_current_user)):
+    """
+    Returns list of patients connected to this doctor through doctor_patient_relationships.
+    """
+    doctor_id = current_user.get("sub")
+    relationships = db.select("doctor_patient_relationships", {"doctor_id": doctor_id, "status": "active"})
+    
+    patient_list = []
+    for rel in relationships:
+        p_id = rel.get("patient_id")
+        prof = db.select_one("profiles", {"id": p_id})
+        if prof:
+            pid_row = db.select_one("patient_identifiers", {"profile_id": p_id})
+            # Check latest session summary
+            summaries = db.select("medical_summaries", {"patient_id": p_id})
+            latest_summary = summaries[-1] if summaries else None
 
-        priority = "NORMAL"
-        if has_flags:
-            priority = "CRITICAL" if any(f.get("severity") == "CRITICAL" for f in db.red_flags if f.get("session_id") == s_id) else "HIGH"
+            patient_list.append({
+                "id": prof["id"],
+                "full_name": prof["full_name"],
+                "medikiosk_id": pid_row["medikiosk_id"] if pid_row else "N/A",
+                "age": prof.get("age"),
+                "phone": prof.get("phone"),
+                "connected_since": rel.get("created_at"),
+                "has_summary": latest_summary is not None,
+                "red_flags": latest_summary.get("red_flags", []) if latest_summary else []
+            })
+    return patient_list
 
-        queue.append(DoctorQueueItem(
-            patient_id=p_id,
-            medikiosk_id=patient.get("medikiosk_id", "MK-P00000"),
-            patient_name=patient.get("full_name", "Patient"),
-            age=patient.get("age", 40),
-            gender=patient.get("gender", "Other"),
-            chief_complaint=session.get("chief_complaint_text") or "Intake completed",
-            priority=priority,
-            has_red_flags=has_flags,
-            red_flag_count=flag_count,
-            wait_time_minutes=5,
-            completion_percentage=100 if session.get("session_status") == "READY_FOR_REVIEW" else 75,
-            session_id=s_id,
-            session_status=session.get("session_status", "IN_PROGRESS")
-        ))
+@router.get("/patients/search")
+def search_patients(
+    query: str = Query(..., min_length=1),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Live query against Supabase database for patients by Name or MK-XXXXXX ID.
+    Zero fake search records.
+    """
+    doctor_id = current_user.get("sub")
+    q = query.strip().lower()
 
-    # Also list registered patients who connected to this doctor even if session hasn't started
-    for rel in db.doctor_patient_relationships:
-        p_id = rel["patient_id"]
-        if not any(q.patient_id == p_id for q in queue):
-            patient = db.patients.get(p_id)
-            if patient:
-                queue.append(DoctorQueueItem(
-                    patient_id=p_id,
-                    medikiosk_id=patient.get("medikiosk_id", "MK-P00000"),
-                    patient_name=patient.get("full_name", "Patient"),
-                    age=patient.get("age", 40),
-                    gender=patient.get("gender", "Other"),
-                    chief_complaint="Connected for Consultation",
-                    priority="NORMAL",
-                    has_red_flags=False,
-                    red_flag_count=0,
-                    wait_time_minutes=2,
-                    completion_percentage=25,
-                    session_id=p_id,
-                    session_status="WAITING"
-                ))
+    all_patients = db.select("profiles", {"role": "patient"})
+    matches = []
 
-    # Sort queue: CRITICAL first, then HIGH, then NORMAL
-    priority_weights = {"CRITICAL": 0, "HIGH": 1, "NORMAL": 2}
-    return sorted(queue, key=lambda x: priority_weights.get(x.priority, 3))
+    for p in all_patients:
+        pid_row = db.select_one("patient_identifiers", {"profile_id": p["id"]})
+        mk_id = pid_row["medikiosk_id"].lower() if pid_row else ""
+        name = p["full_name"].lower()
 
-@router.get("/patient/{patient_id}/full-record")
-async def get_full_patient_record(patient_id: str, current_user: Dict[str, Any] = Depends(get_current_user)):
-    patient = db.patients.get(patient_id)
-    if not patient:
-        for p in db.patients.values():
-            if p.get("medikiosk_id") == patient_id:
-                patient = p
-                patient_id = p["id"]
-                break
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient record not found")
+        if q in mk_id or q in name:
+            # Check if this doctor is authorized for this patient
+            is_authorized = db.select_one("doctor_patient_relationships", {
+                "doctor_id": doctor_id,
+                "patient_id": p["id"],
+                "status": "active"
+            }) is not None
 
-    session = next((s for s in db.clinical_sessions.values() if s["patient_id"] == patient_id), None)
-    session_id = session["id"] if session else None
+            matches.append({
+                "id": p["id"],
+                "full_name": p["full_name"],
+                "medikiosk_id": pid_row["medikiosk_id"] if pid_row else "N/A",
+                "age": p.get("age"),
+                "phone": p.get("phone"),
+                "is_authorized": is_authorized
+            })
+    return matches
 
-    conditions = [c for c in db.medical_conditions if c["patient_id"] == patient_id]
-    medications = [m for m in db.medications if m["patient_id"] == patient_id]
-    allergies = [a for a in db.allergies if a["patient_id"] == patient_id]
-    investigations = [i for i in db.investigations if i["patient_id"] == patient_id]
-    timeline = sorted([t for t in db.medical_timeline if t["patient_id"] == patient_id], key=lambda x: x.get("event_date", ""), reverse=True)
-    red_flags = [f for f in db.red_flags if f.get("patient_id") == patient_id and f.get("is_active")]
-    documents = [d for d in db.documents if d.get("patient_id") == patient_id]
-    history_records = [h for h in db.medical_history if h.get("patient_id") == patient_id]
-    ayush = db.ayush_assessments.get(session_id) if session_id else None
-    summary = db.summaries.get(session_id) if session_id else None
+@router.get("/patients/{patient_id}/case")
+def get_patient_clinical_case(patient_id: str, current_user: dict = Depends(get_current_user)):
+    """
+    Authoritative Clinical Case Viewer for Doctor.
+    Verifies relationship authorization before exposing sensitive health records.
+    """
+    doctor_id = current_user.get("sub")
+    
+    # 1. Authorization check
+    rel = db.select_one("doctor_patient_relationships", {
+        "doctor_id": doctor_id,
+        "patient_id": patient_id,
+        "status": "active"
+    })
+    if not rel:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. You are not authorized to view this patient's medical records without an active clinical connection."
+        )
+
+    patient_prof = db.select_one("profiles", {"id": patient_id})
+    if not patient_prof:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient profile not found")
+
+    clean_p = dict(patient_prof)
+    clean_p.pop("hashed_password", None)
+    pid_row = db.select_one("patient_identifiers", {"profile_id": patient_id})
+    clean_p["medikiosk_id"] = pid_row["medikiosk_id"] if pid_row else "N/A"
+
+    history = db.select("medical_history", {"patient_id": patient_id})
+    timeline = db.select("medical_timeline", {"patient_id": patient_id})
+    timeline.sort(key=lambda x: str(x.get("event_date", "")), reverse=True)
+    documents = db.select("medical_documents", {"patient_id": patient_id})
+    summaries = db.select("medical_summaries", {"patient_id": patient_id})
+    latest_summary = summaries[-1] if summaries else None
+
+    # Red-flags from latest summary
+    red_flags = latest_summary.get("red_flags", []) if latest_summary else []
+
+    # FHIR export ready bundle
+    fhir_bundle = None
+    if latest_summary:
+        fhir_bundle = fhir_adapter.create_bundle(
+            patient_profile=clean_p,
+            medikiosk_id=clean_p["medikiosk_id"],
+            summary=latest_summary.get("summary_json", {}),
+            red_flags=red_flags
+        )
 
     return {
-        "patient": patient,
-        "session": session,
-        "conditions": conditions,
-        "medications": medications,
-        "allergies": allergies,
-        "investigations": investigations,
-        "timeline": timeline,
+        "patient": clean_p,
+        "summary": latest_summary,
         "red_flags": red_flags,
+        "history": history,
+        "timeline": timeline,
         "documents": documents,
-        "medical_history": history_records,
-        "ayush": ayush,
-        "summary": summary
+        "fhir_bundle": fhir_bundle
     }
 
-@router.post("/review/{session_id}/verify-field")
-async def verify_field(session_id: str, req: FieldVerificationRequest, current_user: Dict[str, Any] = Depends(get_current_user)):
-    if req.field_type == "medication":
-        for m in db.medications:
-            if m["id"] == req.field_id:
-                m["doctor_verified"] = (req.action == "CONFIRMED")
-                break
-    elif req.field_type == "allergy":
-        for a in db.allergies:
-            if a["id"] == req.field_id:
-                a["doctor_verified"] = (req.action == "CONFIRMED")
-                if req.action == "CONFIRMED":
-                    a["contradiction_flag"] = False
-                break
-    elif req.field_type == "investigation":
-        for inv in db.investigations:
-            if inv["id"] == req.field_id:
-                inv["doctor_verified"] = (req.action == "CONFIRMED")
-                break
-
-    return {"status": "SUCCESS", "field_id": req.field_id, "action": req.action}
-
-@router.post("/review/{session_id}/sign-off")
-async def sign_off_case(session_id: str, req: SignOffRequest, current_user: Dict[str, Any] = Depends(get_current_user)):
-    session = db.clinical_sessions.get(session_id)
-    patient_id = session["patient_id"] if session else session_id
-
-    if session:
-        session["session_status"] = "COMPLETED"
-        session["completed_at"] = datetime.utcnow().isoformat()
-
-    review_id = str(uuid.uuid4())
-    db.doctor_reviews[session_id] = {
-        "id": review_id,
-        "session_id": session_id,
-        "patient_id": patient_id,
-        "doctor_id": current_user.get("id"),
-        "clinical_notes": req.clinical_notes,
-        "provisional_plan": req.provisional_plan,
-        "verified_at": datetime.utcnow().isoformat(),
-        "is_signed_off": True
-    }
-
-    db.audit_logs.append({
+@router.post("/patients/{patient_id}/verify-summary")
+def verify_patient_summary(
+    patient_id: str,
+    payload: Dict[str, Any],
+    current_user: dict = Depends(get_current_user)
+):
+    doctor_id = current_user.get("sub")
+    summary_id = payload.get("summary_id")
+    notes = payload.get("notes", "Reviewed and verified by attending physician.")
+    
+    review_record = {
         "id": str(uuid.uuid4()),
-        "user_id": current_user.get("id", "DOCTOR"),
-        "patient_id": patient_id,
-        "session_id": session_id,
-        "action_type": "DOCTOR_VERIFICATION_SIGNOFF",
-        "resource_accessed": "CLINICAL_SUMMARY_RECORD",
-        "created_at": datetime.utcnow().isoformat()
-    })
-
-    return {"status": "SUCCESS", "message": "Clinical case verified and signed off successfully", "review_id": review_id}
+        "summary_id": summary_id,
+        "doctor_id": doctor_id,
+        "notes": notes,
+        "status": "reviewed",
+        "reviewed_at": datetime.now(timezone.utc).isoformat()
+    }
+    db.insert("doctor_reviews", review_record)
+    return {"status": "success", "message": "Clinical case review recorded."}

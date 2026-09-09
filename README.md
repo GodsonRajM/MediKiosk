@@ -65,14 +65,14 @@ Open [http://localhost:3000](http://localhost:3000) to access the Kiosk and Port
 
 ---
 
-## 👥 Demo Accounts & Roles
+## 👥 Authentication & Real User Roles
 
-| Role | Email / ID | Default Password | Description |
-| :--- | :--- | :--- | :--- |
-| **Patient** | `MK-000001` / `patient@medikiosk.local` | `patient123` | Demo patient (Tamil, 52M, chest pain, diabetes) |
-| **Doctor** | `doctor@medikiosk.local` | `doctor123` | OPD Physician reviewing intake & verifying facts |
-| **Triage Staff** | `triage@medikiosk.local` | `triage123` | Nurse / Triage desk monitoring red flags |
-| **Admin** | `admin@medikiosk.local` | `admin123` | System oversight and audit log inspector |
+MediKiosk contains **ZERO dummy/mock data**. Accounts are registered directly through the platform with genuine ID generation:
+
+| Role | Registration & ID Format | Description |
+| :--- | :--- | :--- |
+| **Patient** | Register via `PATIENT LOGIN` → Receives unique `MK-XXXXXX` | Completes pre-consultation clinical intake and manages medical history |
+| **Doctor** | Register via `DOCTOR LOGIN` → Receives unique `DK-XXXXXX` | Reviews patient clinical summaries, verifies intake facts, and monitors red flags |
 
 ---
 
@@ -80,5 +80,5 @@ Open [http://localhost:3000](http://localhost:3000) to access the Kiosk and Port
 
 - `backend/`: FastAPI application, clinical question graph, rule engines, AI services, and adapters.
 - `frontend/`: Next.js 14+ App Router, accessible kiosk interface, physician verification portal.
-- `database/`: Supabase PostgreSQL schema, RLS policies, and synthetic seed datasets.
+- `database/`: Supabase PostgreSQL schema and RLS policies.
 - `docs/`: In-depth architecture, API documentation, demo walk-throughs, and AYUSH specification.

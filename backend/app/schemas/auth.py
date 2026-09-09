@@ -1,58 +1,50 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 
-class Token(BaseModel):
+class PatientSignupRequest(BaseModel):
+    full_name: str = Field(..., min_length=2)
+    email: str
+    password: str = Field(..., min_length=6)
+    age: int = Field(..., ge=1, le=130)
+    phone: str = Field(..., min_length=7)
+    address: str = Field(..., min_length=3)
+    blood_group: Optional[str] = None
+    emergency_contact: str = Field(..., min_length=7)
+    consent_accepted: bool = Field(..., description="Mandatory consent for clinical intake and data protection")
+
+class DoctorSignupRequest(BaseModel):
+    full_name: str = Field(..., min_length=2)
+    email: str
+    password: str = Field(..., min_length=6)
+    age: int = Field(..., ge=18, le=120)
+    phone: str = Field(..., min_length=7)
+    address: str = Field(..., min_length=3)
+    specialization: Optional[str] = "General Medicine"
+    blood_group: Optional[str] = None
+    emergency_contact: str = Field(..., min_length=5)
+    consent_accepted: bool = Field(..., description="Mandatory consent for clinical protocol oversight")
+
+class LoginRequest(BaseModel):
+    identifier: str = Field(..., description="Patient ID (MK-XXXXXX), Doctor ID (DK-XXXXXX), or registered Email")
+    name: Optional[str] = None
+    password: str = Field(..., min_length=1)
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    email: str
+    reset_token: str
+    new_password: str = Field(..., min_length=6)
+
+class ConsentSubmissionRequest(BaseModel):
+    consent_type: str = "clinical_intake_and_privacy"
+    consent_status: str = "granted"
+    consent_version: str = "v1.0"
+    consent_text: str
+
+class AuthTokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int
     user: Dict[str, Any]
-
-class LoginRequest(BaseModel):
-    identifier: str  # MediKiosk ID (MK-P..., MK-D...), Email, or Phone
-    password: str
-    expected_role: Optional[str] = None  # "PATIENT" or "DOCTOR"
-
-class PatientRegisterRequest(BaseModel):
-    full_name: str
-    email: Optional[str] = None
-    phone: str
-    password: str
-    date_of_birth: Optional[str] = None
-    age: Optional[int] = None
-    gender: str = "Other"
-    address: Optional[str] = None
-    blood_group: Optional[str] = None
-    emergency_contact_name: Optional[str] = None
-    emergency_contact_phone: Optional[str] = None
-    preferred_language: str = "en"
-    consent_granted: bool = Field(..., description="Mandatory explicit consent for clinical data collection under DPDP / ABDM")
-
-class DoctorRegisterRequest(BaseModel):
-    full_name: str
-    email: str
-    phone: str
-    password: str
-    specialization: str
-    license_number: Optional[str] = None
-    address: Optional[str] = None
-    blood_group: Optional[str] = None
-    emergency_contact_phone: Optional[str] = None
-    consent_granted: bool = Field(..., description="Mandatory explicit consent for doctor portal usage and verified EHR access")
-
-class ForgotPasswordRequest(BaseModel):
-    identifier: str
-    new_password: str
-
-class OTPRequest(BaseModel):
-    phone: str
-
-class OTPVerifyRequest(BaseModel):
-    phone: str
-    otp_code: str
-
-class UserResponse(BaseModel):
-    id: str
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    role: str
-    is_active: bool

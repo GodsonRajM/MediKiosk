@@ -3,83 +3,39 @@
 @tailwind utilities;
 
 :root {
-  --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  --bg-primary: #f8fafc;
-  --bg-surface: #ffffff;
-  --bg-secondary: #f1f5f9;
-  --text-main: #0f172a;
-  --text-muted: #64748b;
-  --border-color: #e2e8f0;
-  --brand-blue: #2563eb;
-  --brand-blue-hover: #1d4ed8;
-  --brand-blue-light: #eff6ff;
+  --background: #f8fafc;
+  --foreground: #0f172a;
 }
 
 .dark {
-  --bg-primary: #0b1120;
-  --bg-surface: #131d31;
-  --bg-secondary: #1e293b;
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --border-color: #2a374d;
-  --brand-blue: #3b82f6;
-  --brand-blue-hover: #60a5fa;
-  --brand-blue-light: #1e293b;
+  --background: #0f172a;
+  --foreground: #f8fafc;
 }
 
 body {
-  font-family: var(--font-inter);
-  background-color: var(--bg-primary);
-  color: var(--text-main);
-  overflow-x: hidden;
-  -webkit-tap-highlight-color: transparent;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  color: var(--foreground);
+  background: var(--background);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Kiosk Touch Target & Accessibility */
-button, input, select, textarea {
-  min-height: 44px;
-  touch-action: manipulation;
-}
-
-/* Professional Healthcare Panel Utilities */
+/* Custom Healthcare UI styles */
 .health-card {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: 1rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  @apply bg-white dark:bg-medgrey-800 border border-medgrey-200 dark:border-medgrey-700 rounded-2xl shadow-sm transition-all duration-200;
 }
 
-.health-card-hover {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.health-card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.1), 0 4px 6px -4px rgba(37, 99, 235, 0.05);
-  border-color: #93c5fd;
+.health-card:hover {
+  @apply shadow-md border-medblue-300 dark:border-medblue-700;
 }
 
-.glass-panel {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border-color);
+.health-btn-primary {
+  @apply bg-medblue-600 hover:bg-medblue-700 text-white font-medium py-3 px-6 rounded-xl shadow-sm transition-all duration-150 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
-.dark .glass-panel {
-  background: rgba(19, 29, 49, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border-color);
+.health-btn-secondary {
+  @apply bg-white dark:bg-medgrey-800 hover:bg-medgrey-50 dark:hover:bg-medgrey-700 text-medgrey-800 dark:text-medgrey-100 border border-medgrey-300 dark:border-medgrey-600 font-medium py-3 px-6 rounded-xl transition-all duration-150 flex items-center justify-center gap-2;
 }
 
-/* Audio Wave Pulse Animation */
-@keyframes voice-pulse {
-  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.6); }
-  70% { transform: scale(1.06); box-shadow: 0 0 0 14px rgba(37, 99, 235, 0); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
-}
-
-.animate-voice-pulse {
-  animation: voice-pulse 1.8s infinite;
+.health-input {
+  @apply w-full px-4 py-3 bg-white dark:bg-medgrey-800/80 border border-medgrey-300 dark:border-medgrey-700 rounded-xl text-medgrey-900 dark:text-white placeholder-medgrey-400 focus:outline-none focus:ring-2 focus:ring-medblue-500 focus:border-transparent transition-all;
 }

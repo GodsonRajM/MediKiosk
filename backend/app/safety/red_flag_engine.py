@@ -1,68 +1,57 @@
-import uuid
-from typing import Dict, Any, List, Optional
-from datetime import datetime
+from typing import List, Dict, Any
 
-class RedFlagRuleEngine:
+class RedFlagEngine:
     """
-    Deterministic Safety Rule Engine.
-    Evaluates patient responses and clinical parameters against evidence-based rules.
-    Outputs strict non-diagnostic triage advisories (never diagnostic conclusions).
+    Deterministic Safety & Red-Flag Engine for MediKiosk.
+    Evaluates clinical entities and answers against evidence-based triage rules.
+    Never diagnoses; flags critical presentations for priority medical assessment.
     """
+    
+    def evaluate(self, answers: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        alerts = []
+        
+        # Flatten answers into map
+        ans_map = {}
+        for a in answers:
+            qid = a.get("question_id")
+            val = str(a.get("answer_text", "")).lower()
+            ans_map[qid] = val
 
-    def evaluate_session(self, chief_complaint: str, answers_map: Dict[str, str], patient_history: List[str]) -> List[Dict[str, Any]]:
-        triggered_flags = []
-        cc_lower = chief_complaint.lower() if chief_complaint else ""
-        combined_text = (cc_lower + " " + " ".join(answers_map.values())).lower()
+        # 1. Cardiovascular / Acute Coronary Syndrome Warning
+        primary = ans_map.get("q_chief_complaint", "")
+        assoc = ans_map.get("q_associated_symptoms", "")
+        sev = ans_map.get("q_severity", "")
 
-        # RULE 1: Retrosternal chest pain / exertion + dyspnea (Demo scenario)
-        has_chest_pain = any(k in combined_text for k in ["chest pain", "chest tightness", "heaviness in chest", "நெஞ்சு வலி", "மார்பு வலி", "सीने में दर्द"])
-        has_dyspnea = any(k in combined_text for k in ["shortness of breath", "breathlessness", "difficulty breathing", "மூச்சுத் திணறல்", "சாஸ் फूलना"])
-        has_exertion = any(k in combined_text for k in ["exertion", "walking", "stairs", "நடக்கும் போது", "चलने पर"])
+        is_chest_pain = "chest" in primary or "chest_pain" in primary
+        has_dyspnea = "shortness_of_breath" in assoc or "breathing" in assoc or "sweat" in assoc
 
-        if has_chest_pain and (has_dyspnea or has_exertion):
-            criteria = []
-            if has_chest_pain: criteria.append("chest_pain_present: true")
-            if has_dyspnea: criteria.append("associated_dyspnea: true")
-            if has_exertion: criteria.append("exertional_provocation: true")
-
-            triggered_flags.append({
-                "id": str(uuid.uuid4()),
-                "rule_id": "RULE_CHEST_PAIN_EXERTIONAL_SOB",
-                "severity": "CRITICAL",
-                "title": "Exertional Retrosternal Chest Pain with Dyspnea",
-                "clinical_recommendation": "Priority clinical assessment recommended. Urgent 12-lead ECG and physician evaluation advised.",
-                "triggered_criteria": criteria,
-                "is_active": True,
-                "created_at": datetime.utcnow().isoformat()
+        if is_chest_pain and has_dyspnea:
+            alerts.append({
+                "rule_id": "RF-CARDIO-001",
+                "level": "CRITICAL",
+                "message": "Potential Acute Cardiopulmonary Presentation detected (Chest discomfort with dyspnea/diaphoresis).",
+                "triage_recommendation": "Priority clinical assessment recommended. Immediate ECG and vitals evaluation advised.",
+                "symptoms": ["Chest Pain", "Shortness of Breath / Diaphoresis"]
+            })
+        elif is_chest_pain:
+            alerts.append({
+                "rule_id": "RF-CARDIO-002",
+                "level": "HIGH",
+                "message": "Acute Chest Discomfort reported.",
+                "triage_recommendation": "Priority OPD assessment advised.",
+                "symptoms": ["Chest Pain"]
             })
 
-        # RULE 2: Severe acute pain (scale >= 8/10)
-        severity_ans = answers_map.get("HPI_SEVERITY", "")
-        if severity_ans in ["8", "9", "10"]:
-            triggered_flags.append({
-                "id": str(uuid.uuid4()),
-                "rule_id": "RULE_SEVERE_ACUTE_PAIN",
-                "severity": "HIGH",
-                "title": "High-Intensity Pain Reported",
-                "clinical_recommendation": "Priority clinical assessment recommended. Rapid analgesic and diagnostic assessment indicated.",
-                "triggered_criteria": [f"pain_scale_reported: {severity_ans}/10"],
-                "is_active": True,
-                "created_at": datetime.utcnow().isoformat()
+        # 2. Critical Pain Severity Rule
+        if "critical_9_10" in sev or "9" in sev or "10" in sev:
+            alerts.append({
+                "rule_id": "RF-PAIN-001",
+                "level": "HIGH",
+                "message": "High Acute Pain Scale reported (Score 9-10).",
+                "triage_recommendation": "Expedited clinical triage for pain stabilization.",
+                "symptoms": ["Severe Discomfort (9-10/10)"]
             })
 
-        # RULE 3: Sudden onset neurologial / dizziness / syncope
-        if any(k in combined_text for k in ["fainting", "syncope", "passed out", "loss of consciousness", "சுயநினைவு இழப்பு", "बेहोश"]):
-            triggered_flags.append({
-                "id": str(uuid.uuid4()),
-                "rule_id": "RULE_SYNCOPE_EPISODE",
-                "severity": "CRITICAL",
-                "title": "Reported Episode of Syncope or Loss of Consciousness",
-                "clinical_recommendation": "Priority clinical assessment recommended. Immediate vitals assessment and neurology/cardiology review advised.",
-                "triggered_criteria": ["syncope_symptom: true"],
-                "is_active": True,
-                "created_at": datetime.utcnow().isoformat()
-            })
+        return alerts
 
-        return triggered_flags
-
-red_flag_engine = RedFlagRuleEngine()
+red_flag_engine = RedFlagEngine()

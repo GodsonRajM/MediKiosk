@@ -1,174 +1,141 @@
 # MediKiosk REST API Specification
+Smart India Hackathon 2026 — Problem Statement SIH26047
 
 > **Backend Engine**: FastAPI (Python 3.10+)  
 > **Base URL**: `http://localhost:8000/api/v1`  
-> **Authentication**: Bearer JWT (`Authorization: Bearer <token>`)
+> **Authentication**: Bearer JWT (`Authorization: Bearer <token>`)  
+> **Zero Dummy Data**: Strictly persistent with Supabase PostgreSQL and authentic user generation.
 
 ---
 
-## 1. Authentication & RBAC (`/auth`)
+## 1. Authentication & Role-Based Access (`/auth`)
 
-### `POST /auth/login`
-Authenticates a user by email/phone or MediKiosk ID with password.
-- **Request**:
+### `POST /auth/patient/signup`
+Registers a genuine patient with atomic `MK-XXXXXX` identifier generation.
+- **Mandatory Consent**: Must include `consent_accepted: true`. If `false`, rejects with `400 Bad Request`.
+- **Request Body**:
   ```json
   {
-    "identifier": "MK-000001",
-    "password": "patient123"
+    "full_name": "Ramesh Kumar",
+    "email": "ramesh.kumar@hospital.org",
+    "password": "SecurePassword123!",
+    "age": 52,
+    "phone": "+919876543210",
+    "address": "Bangalore, Karnataka",
+    "blood_group": "B+",
+    "emergency_contact": "+919876543211",
+    "consent_accepted": true
   }
   ```
-- **Response** (`200 OK`):
+- **Response** (`201 Created`):
   ```json
   {
     "access_token": "eyJhbGciOi...",
     "token_type": "bearer",
-    "expires_in": 3600,
+    "expires_in": 7200,
     "user": {
-      "id": "00000000-0000-0000-0000-000000000001",
-      "email": "patient@medikiosk.local",
-      "role": "PATIENT",
-      "patient_id": "11111111-1111-1111-1111-111111111111",
-      "medikiosk_id": "MK-000001"
+      "sub": "uuid-here",
+      "email": "ramesh.kumar@hospital.org",
+      "role": "patient",
+      "medikiosk_id": "MK-000001",
+      "name": "Ramesh Kumar"
     }
   }
   ```
 
-### `POST /auth/otp/send` & `POST /auth/otp/verify`
-Mock OTP workflow for passwordless patient kiosk login.
-
----
-
-## 2. Patients & Demographics (`/patients`)
-
-### `GET /patients/{id}`
-Retrieves demographic profile and external identifiers (`patient_identifiers`).
-- **Authorization**: Self (`PATIENT`), Consented `DOCTOR`, `TRIAGE_STAFF`, or `ADMIN`.
-
-### `POST /patients`
-Registers a new patient and generates next sequential `MK-XXXXXX` ID.
-
----
-
-## 3. Clinical Sessions & Consent (`/sessions`)
-
-### `POST /sessions`
-Initiates a new clinical intake session.
-- **Request**:
+### `POST /auth/doctor/signup`
+Registers a genuine OPD doctor with atomic `DK-XXXXXX` identifier generation.
+- **Request Body**:
   ```json
   {
-    "patient_id": "11111111-1111-1111-1111-111111111111",
-    "mode": "AYUSH",
-    "selected_language": "ta"
+    "full_name": "Dr. Ananya Sharma",
+    "email": "dr.ananya@hospital.org",
+    "password": "DoctorSecure123!",
+    "age": 38,
+    "phone": "+919844433221",
+    "address": "Chennai, Tamil Nadu",
+    "specialization": "Cardiology",
+    "emergency_contact": "+919844433220",
+    "consent_accepted": true
+  }
+  ```
+- **Response** (`201 Created`):
+  ```json
+  {
+    "access_token": "eyJhbGciOi...",
+    "token_type": "bearer",
+    "expires_in": 7200,
+    "user": {
+      "sub": "uuid-here",
+      "email": "dr.ananya@hospital.org",
+      "role": "doctor",
+      "doctor_id": "DK-000001",
+      "name": "Dr. Ananya Sharma"
+    }
   }
   ```
 
-### `POST /sessions/{id}/consent`
-Records multi-category granular consent.
-- **Request**:
-  ```json
-  {
-    "consents": [
-      {"category": "CLINICAL_HISTORY", "status": "GRANTED"},
-      {"category": "VOICE_PROCESSING", "status": "GRANTED"},
-      {"category": "MEDICAL_DOCUMENTS", "status": "GRANTED"},
-      {"category": "DOCTOR_SHARING", "status": "GRANTED"}
-    ],
-    "language": "ta",
-    "audio_recorded": true
-  }
-  ```
+### `POST /auth/login`
+Authenticates a user via Patient ID (`MK-XXXXXX`), Doctor ID (`DK-XXXXXX`), or Email.
+- **Enforcement**: Verifies password and checks active consent.
+
+### `POST /auth/forgot-password` & `POST /auth/reset-password`
+Handles password recovery and updates the hashed credential.
+
+### `GET /auth/me`
+Retrieves authenticated profile and identifier.
 
 ---
 
-## 4. Interviews & Question Graph (`/interviews`)
+## 2. Doctor-Patient Connection (`/relationships`)
 
-### `GET /interviews/{session_id}/next-question`
-Retrieves the next clinical question determined by the deterministic graph.
-- **Response** (`200 OK`):
-  ```json
-  {
-    "question_id": "HPI_CHEST_PAIN_SEVERITY",
-    "section": "HPI",
-    "question_text": "On a scale of 1 to 10, how severe is your chest pain?",
-    "input_type": "scale",
-    "options": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
-    "is_required": true
-  }
-  ```
+### `POST /relationships/connect`
+Connects a patient to an attending doctor via Doctor ID (`DK-XXXXXX`) or Name.
+- Creates active relationship in `doctor_patient_relationships`.
+- Creates active intake session in `clinical_sessions`.
 
-### `POST /interviews/{session_id}/answers`
-Submits raw answer, triggers structured entity extraction and red-flag evaluation.
-- **Request**:
-  ```json
-  {
-    "question_id": "HPI_CHEST_PAIN_SEVERITY",
-    "answer_text": "Around 6 out of 10, feels like heavy pressure",
-    "input_method": "voice",
-    "audio_transcript": "Around 6 out of 10, feels like heavy pressure"
-  }
-  ```
+### `GET /relationships/current`
+Returns patient's active connected doctor and session status.
 
 ---
 
-## 5. Documents & OCR (`/documents`)
+## 3. AI Clinical History Taking (`/interviews`)
+
+### `POST /interviews/start`
+Starts clinical interview and returns the first question node from the Question Graph.
+
+### `POST /interviews/answer`
+Submits answer to current question.
+- Extracts structured clinical entities via Gemini.
+- Evaluates real-time deterministic red-flags.
+- Returns next question or synthesizes the final pre-consultation medical summary upon completion.
+
+---
+
+## 4. Patient Medical Records (`/patients`)
+
+- `GET /patients/profile`: Get profile demographics.
+- `PUT /patients/profile`: Update profile demographics.
+- `GET /patients/history`: Retrieve real medical history records (returns empty array if none recorded).
+- `POST /patients/history`: Add condition, surgery, medication, or allergy record + writes to timeline.
+- `DELETE /patients/history/{id}`: Delete medical history record + updates timeline.
+- `GET /patients/timeline`: Unified chronological medical timeline.
+
+---
+
+## 5. Medical Documents & OCR (`/documents`)
 
 ### `POST /documents/upload`
-Uploads prescription or lab report file (multipart/form-data).
-
-### `POST /documents/{id}/process`
-Runs document understanding pipeline (`mock` or `gemini-vision`) to extract medications, dosages, lab values, and normal ranges.
-
----
-
-## 6. Safety & Triage (`/red-flags`, `/triage`)
-
-### `GET /red-flags/session/{session_id}`
-Returns active safety flags for a clinical session.
-
-### `GET /triage/alerts`
-Live alert feed for hospital triage desk.
-- **Authorization**: `TRIAGE_STAFF`, `DOCTOR`, `ADMIN`.
-
-### `POST /triage/alerts/{id}/acknowledge`
-Acknowledge or update triage alert status (`ACKNOWLEDGED`, `UNDER_REVIEW`, `ESCALATED`, `CLOSED`).
+Multipart upload for prescriptions, lab reports, and scans.
+- Performs Gemini Vision OCR.
+- Stores extracted entities and updates patient timeline.
 
 ---
 
-## 7. AYUSH Clinical Engine (`/ayush`)
+## 6. Doctor Portal APIs (`/doctors`)
 
-### `GET /ayush/{session_id}`
-Retrieves structured Dashavidha Pariksha and Ahara-Vihara parameters.
-
-### `POST /ayush/{session_id}`
-Updates individual Dashavidha Pariksha parameters with validation.
-
----
-
-## 8. Doctor Verification & Sign-Off (`/doctors`)
-
-### `GET /doctors/queue`
-Retrieves prioritized patient queue for the logged-in doctor.
-
-### `POST /doctors/review/{session_id}/verify-field`
-Granular field-level verification:
-- **Request**:
-  ```json
-  {
-    "field_id": "med_metformin_01",
-    "action": "CONFIRMED",
-    "doctor_notes": "Adherent to Metformin 500mg BD"
-  }
-  ```
-
-### `POST /doctors/review/{session_id}/sign-off`
-Doctor finalizes clinical intake and generates immutable clinical record.
-
----
-
-## 9. Interoperability (`/fhir`, `/abdm`)
-
-### `GET /fhir/patient/{id}/bundle`
-Exports complete encounter as standard HL7 FHIR R4 Bundle JSON.
-
-### `POST /abdm/consent/request`
-Mock ABDM M2 consent artifact request.
+- `GET /doctors`: List available OPD doctors for patient selection.
+- `GET /doctors/patients`: List patients actively connected to this doctor.
+- `GET /doctors/patients/search?query=...`: Live query by patient name or `MK-XXXXXX` ID.
+- `GET /doctors/patients/{id}/case`: Enforces authorization check. Returns patient summary, timeline, documents, and FHIR R4 Bundle.
+- `POST /doctors/patients/{id}/verify-summary`: Records doctor verification.
