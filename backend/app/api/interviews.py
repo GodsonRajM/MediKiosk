@@ -8,23 +8,8 @@ from app.safety.red_flag_engine import red_flag_engine
 from app.ai.extraction_service import extraction_service
 from app.core.database import db
 
-# In-memory interview answers store
-session_answers: Dict[str, Dict[str, str]] = {
-    "22222222-2222-2222-2222-222222222222": {
-        "CHIEF_COMPLAINT": "Chest pain and breathlessness for past 2 days",
-        "HPI_DURATION": "1 - 3 days",
-        "HPI_ONSET": "Gradually over hours or days",
-        "HPI_LOCATION": "Center of chest",
-        "HPI_SEVERITY": "6",
-        "HPI_CHARACTER": "Heavy pressure / Tightness",
-        "HPI_AGGRAVATING": "Walking or physical exertion",
-        "HPI_RELIEVING": "Relieved completely by rest (5-10 mins)",
-        "HPI_ASSOCIATED": "Shortness of breath",
-        "PMH_CONDITIONS": "Diabetes Mellitus, Hypertension",
-        "MEDS_CURRENT": "Metformin 500mg, Amlodipine 5mg",
-        "ALLERGIES_CHECK": "No known allergies"
-    }
-}
+# Dynamic in-memory interview answers store initialized empty
+session_answers: Dict[str, Dict[str, str]] = {}
 
 router = APIRouter(prefix="/interviews", tags=["Clinical Interview Engine"])
 
@@ -69,32 +54,33 @@ async def submit_answer(session_id: str, ans: AnswerSubmission):
     if ans.question_id == "CHIEF_COMPLAINT":
         session["chief_complaint_text"] = ans.answer_text
 
-    # Run entity extraction
+    # Run real extraction
     extracted = await extraction_service.extract_from_answer(ans.answer_text, ans.question_id)
 
-    # Evaluate safety red flags
-    patient_id = session["patient_id"]
+    # Evaluate safety red flags on real answers and real conditions
+    patient_id = session.get("patient_id")
+    patient_conditions = [c["condition_name"] for c in db.medical_conditions if c.get("patient_id") == patient_id]
+
     active_flags = red_flag_engine.evaluate_session(
         chief_complaint=session.get("chief_complaint_text", ""),
         answers_map=session_answers[session_id],
-        patient_history=["Diabetes", "Hypertension"]
+        patient_history=patient_conditions
     )
 
     for flag in active_flags:
-        # Check if already present
-        exists = any(f["session_id"] == session_id and f["rule_id"] == flag["rule_id"] for f in db.red_flags)
+        exists = any(f.get("session_id") == session_id and f.get("rule_id") == flag["rule_id"] for f in db.red_flags)
         if not exists:
             flag["session_id"] = session_id
             flag["patient_id"] = patient_id
             db.red_flags.append(flag)
 
-            # Create Triage alert
+            patient = db.patients.get(patient_id, {})
             db.triage_alerts.append({
                 "id": str(uuid.uuid4()),
                 "red_flag_id": flag["id"],
                 "patient_id": patient_id,
-                "patient_name": db.patients.get(patient_id, {}).get("full_name", "Patient"),
-                "medikiosk_id": db.patients.get(patient_id, {}).get("medikiosk_id", "MK-000001"),
+                "patient_name": patient.get("full_name", "Patient"),
+                "medikiosk_id": patient.get("medikiosk_id", "MK-P00000"),
                 "severity": flag["severity"],
                 "reason": flag["title"],
                 "status": "ACTIVE",
@@ -102,9 +88,26 @@ async def submit_answer(session_id: str, ans: AnswerSubmission):
                 "created_at": datetime.utcnow().isoformat()
             })
 
+    # Add to medical timeline
+    if ans.question_id == "CHIEF_COMPLAINT":
+        db.medical_timeline.append({
+            "id": str(uuid.uuid4()),
+            "patient_id": patient_id,
+            "event_date": datetime.utcnow().strftime("%Y-%m-%d"),
+            "event_type": "SYMPTOM",
+            "title": f"Chief Complaint: {ans.answer_text[:50]}",
+            "description": ans.answer_text,
+            "source": "PATIENT_INTERVIEW",
+            "confidence": 0.95
+        })
+
     return {
         "status": "SUCCESS",
         "question_id": ans.question_id,
         "extracted_entities": extracted,
-        "active_red_flags_count": len(db.red_flags)
+        "active_red_flags_count": len([f for f in db.red_flags if f.get("session_id") == session_id])
     }
+
+@router.get("/{session_id}/answers")
+async def get_session_answers(session_id: str):
+    return session_answers.get(session_id, {})

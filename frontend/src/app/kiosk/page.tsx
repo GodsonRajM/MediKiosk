@@ -1,807 +1,1148 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useApp } from '@/lib/AppContext';
 import { api } from '@/lib/api';
-import { Question, RedFlag, AyushAssessment } from '@/types';
 import {
-  Mic, MicOff, Volume2, CheckCircle2, AlertTriangle, FileUp, Sparkles,
-  ArrowRight, ArrowLeft, HeartPulse, Shield, Globe, User, Clock, Check
+  Home, User, History, Settings as SettingsIcon, Menu, X, Stethoscope,
+  ChevronRight, Mic, MicOff, Volume2, ArrowRight, ArrowLeft, CheckCircle2,
+  AlertTriangle, Upload, Trash2, FileText, Activity, ShieldCheck, Search, Plus
 } from 'lucide-react';
 
 export default function KioskPage() {
   const router = useRouter();
+  const { lang, setLang, t, theme, toggleTheme, user, setUser } = useApp();
 
-  // Kiosk Flow Step
-  const [step, setStep] = useState<
-    'IDENTIFICATION' | 'LANGUAGE' | 'CONSENT' | 'CHIEF_COMPLAINT' |
-    'INTERVIEW' | 'AYUSH' | 'DOCUMENTS' | 'SUMMARY_REVIEW' | 'COMPLETED'
-  >('IDENTIFICATION');
+  // Navigation Sidebar State
+  const [activeTab, setActiveTab] = useState<'home' | 'profile' | 'history' | 'settings'>('home');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Patient / Session State
-  const [patientId, setPatientId] = useState('11111111-1111-1111-1111-111111111111');
-  const [medikioskId, setMedikioskId] = useState('MK-000001');
-  const [patientName, setPatientName] = useState('Sundaram Ramaswamy');
-  const [selectedLanguage, setSelectedLanguage] = useState('ta');
-  const [sessionId, setSessionId] = useState('22222222-2222-2222-2222-222222222222');
-  
-  // Consents State
-  const [consents, setConsents] = useState<Record<string, boolean>>({
-    CLINICAL_HISTORY: true,
-    VOICE_PROCESSING: true,
-    MEDICAL_DOCUMENTS: true,
-    DOCTOR_SHARING: true,
-    RESEARCH_ANALYTICS: false
-  });
+  // Patient Profile State
+  const [patient, setPatient] = useState<any>(null);
+  const [profileForm, setProfileForm] = useState<any>({});
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMsg, setProfileMsg] = useState<string | null>(null);
 
-  // Clinical Interview State
-  const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
+  // Doctor Selection State
+  const [doctorsList, setDoctorsList] = useState<any[]>([]);
+  const [selectedDoctor, setSelectedDoctor] = useState<any>(null);
+  const [doctorSearchQuery, setDoctorSearchQuery] = useState('');
+  const [doctorSearching, setDoctorSearching] = useState(false);
+
+  // Clinical Intake State
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [intakeStep, setIntakeStep] = useState<'SELECT_DOCTOR' | 'INTAKE_ACTIVE' | 'SUMMARY_REVIEW'>('SELECT_DOCTOR');
+  const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [userAnswer, setUserAnswer] = useState('');
+  const [submittingAnswer, setSubmittingAnswer] = useState(false);
+  const [activeRedFlags, setActiveRedFlags] = useState<any[]>([]);
+  const [summaryData, setSummaryData] = useState<any>(null);
+
+  // Speech Recognition State
   const [isListening, setIsListening] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [activeRedFlags, setActiveRedFlags] = useState<RedFlag[]>([]);
-  const [interviewComplete, setInterviewComplete] = useState(false);
+  const speechRecognitionRef = useRef<any>(null);
 
-  // Document Upload State
-  const [uploadedDoc, setUploadedDoc] = useState<any>(null);
-  const [ocrLoading, setOcrLoading] = useState(false);
+  // Medical History State (CRUD)
+  const [historyRecords, setHistoryRecords] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadData, setUploadData] = useState({
+    recordType: 'PRESCRIPTION',
+    title: '',
+    description: '',
+    file: null as File | null,
+  });
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState<string | null>(null);
 
-  // Case Summary State
-  const [caseSummary, setCaseSummary] = useState<any>(null);
-
-  // Initialize and load initial state
+  // Check user authentication
   useEffect(() => {
-    // Pre-populate with demo patient data
-    loadNextQuestion();
-  }, [sessionId, selectedLanguage]);
+    const token = localStorage.getItem('medikiosk_token');
+    const savedUserStr = localStorage.getItem('medikiosk_user');
 
-  // Load next question from Clinical Question Graph
-  const loadNextQuestion = async () => {
+    if (!token || !savedUserStr) {
+      router.push('/login');
+      return;
+    }
+
     try {
-      const res = await api.getNextQuestion(sessionId);
+      const u = JSON.parse(savedUserStr);
+      setPatient(u);
+      setProfileForm({
+        full_name: u.full_name || '',
+        phone: u.phone || '',
+        email: u.email || '',
+        age: u.age || '',
+        gender: u.gender || 'Male',
+        address: u.address || '',
+        blood_group: u.blood_group || 'B+',
+        emergency_contact_name: u.emergency_contact_name || '',
+        emergency_contact_phone: u.emergency_contact_phone || '',
+      });
+
+      // Load doctors and medical history
+      loadDoctors();
+      if (u.patient_id || u.id) {
+        loadHistory(u.patient_id || u.id);
+      }
+    } catch (e) {
+      router.push('/login');
+    }
+  }, []);
+
+  // Reload history and question if language changes
+  useEffect(() => {
+    if (sessionId && intakeStep === 'INTAKE_ACTIVE') {
+      loadNextQuestion(sessionId);
+    }
+  }, [lang]);
+
+  // Load available doctors from backend
+  const loadDoctors = async () => {
+    try {
+      const docs = await api.getDoctors();
+      setDoctorsList(docs);
+      if (docs.length > 0 && !selectedDoctor) {
+        setSelectedDoctor(docs[0]);
+      }
+    } catch (err) {
+      console.error('Failed to load doctors:', err);
+    }
+  };
+
+  const handleSearchDoctor = async (q: string) => {
+    setDoctorSearchQuery(q);
+    if (!q.trim()) {
+      loadDoctors();
+      return;
+    }
+    setDoctorSearching(true);
+    try {
+      const results = await api.searchDoctors(q.trim());
+      setDoctorsList(results);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDoctorSearching(false);
+    }
+  };
+
+  // Start Clinical Intake
+  const startClinicalIntake = async () => {
+    if (!patient) return;
+    if (!selectedDoctor) {
+      alert('Please select a doctor to consult with before starting your intake.');
+      return;
+    }
+
+    try {
+      // 1. Connect patient with selected doctor
+      const pId = patient.patient_id || patient.id;
+      await api.connectDoctor(pId, selectedDoctor.id || selectedDoctor.doctor_id);
+
+      // 2. Start intake session
+      const session = await api.createSession(pId, 'AYUSH', lang);
+      setSessionId(session.id);
+      setIntakeStep('INTAKE_ACTIVE');
+      loadNextQuestion(session.id);
+    } catch (err: any) {
+      alert(err.message || 'Failed to initialize intake session.');
+    }
+  };
+
+  // Load next question from Question Graph
+  const loadNextQuestion = async (sessId: string) => {
+    try {
+      const res = await api.getNextQuestion(sessId);
       if (res.is_complete) {
-        setInterviewComplete(true);
+        setIntakeStep('SUMMARY_REVIEW');
+        fetchCaseSummary(sessId);
       } else {
         setCurrentQuestion(res.question);
         setUserAnswer('');
-        // Optional voice prompt
-        speakText(res.question.question_text);
       }
-    } catch (e) {
-      console.warn("Could not load next question from API, using fallback graph question");
+    } catch (err: any) {
+      console.error('Failed to fetch next question:', err);
     }
   };
 
-  // Text-To-Speech
-  const speakText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.95;
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      window.speechSynthesis.speak(utterance);
+  // Submit answer
+  const handleSubmitAnswer = async (answerText?: string) => {
+    const finalAnswer = (answerText !== undefined ? answerText : userAnswer).trim();
+    if (!finalAnswer && currentQuestion?.is_required) {
+      alert('Please provide a response before proceeding.');
+      return;
+    }
+
+    if (!sessionId || !currentQuestion) return;
+
+    setSubmittingAnswer(true);
+    try {
+      await api.submitAnswer(sessionId, currentQuestion.question_id, finalAnswer, 'touch');
+
+      // Check red flags
+      const flags = await api.getRedFlags(sessionId);
+      setActiveRedFlags(flags);
+
+      // Fetch next question
+      await loadNextQuestion(sessionId);
+    } catch (err: any) {
+      alert(err.message || 'Failed to submit answer.');
+    } finally {
+      setSubmittingAnswer(false);
     }
   };
 
-  // Web Speech API or Fallback Voice Toggle
-  const toggleVoiceRecording = () => {
+  // Fetch longitudinal summary
+  const fetchCaseSummary = async (sessId: string) => {
+    try {
+      const summary = await api.getSummary(sessId);
+      setSummaryData(summary);
+    } catch (err) {
+      console.error('Failed to fetch summary:', err);
+    }
+  };
+
+  // Speech Recognition (Voice Input)
+  const toggleVoiceInput = () => {
     if (isListening) {
+      if (speechRecognitionRef.current) {
+        speechRecognitionRef.current.stop();
+      }
       setIsListening(false);
       return;
     }
 
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognition.lang = selectedLanguage === 'ta' ? 'ta-IN' : selectedLanguage === 'hi' ? 'hi-IN' : 'en-IN';
-      recognition.onstart = () => setIsListening(true);
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setUserAnswer(transcript);
-        setIsListening(false);
-      };
-      recognition.onerror = () => setIsListening(false);
-      recognition.start();
-    } else {
-      // Demo Voice Simulation fallback for browsers without mic permission
-      setIsListening(true);
-      setTimeout(() => {
-        if (currentQuestion?.question_id === 'CHIEF_COMPLAINT') {
-          setUserAnswer("Retrosternal chest heaviness and breathlessness on exertion for past 2 days");
-        } else {
-          setUserAnswer("Pressure sensation, rated around 6 out of 10, worse when climbing stairs");
-        }
-        setIsListening(false);
-      }, 1500);
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech recognition is not supported in this browser. Please type your answer.');
+      return;
     }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    if (lang === 'kn') recognition.lang = 'kn-IN';
+    else if (lang === 'ta') recognition.lang = 'ta-IN';
+    else if (lang === 'hi') recognition.lang = 'hi-IN';
+    else recognition.lang = 'en-IN';
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results)
+        .map((r: any) => r[0].transcript)
+        .join('');
+      setUserAnswer(transcript);
+    };
+
+    speechRecognitionRef.current = recognition;
+    recognition.start();
   };
 
-  // Answer Submission handler
-  const handleAnswerSubmit = async () => {
-    if (!currentQuestion || !userAnswer.trim()) return;
-
+  // Save Profile Changes
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileSaving(true);
+    setProfileMsg(null);
     try {
-      const res = await api.submitAnswer(sessionId, currentQuestion.question_id, userAnswer, 'voice');
-      // If red flags triggered
-      if (res.active_red_flags_count > 0) {
-        const flags = await api.getRedFlags(sessionId);
-        setActiveRedFlags(flags);
-      }
-      await loadNextQuestion();
-    } catch (e) {
-      // Local progression fallback
-      await loadNextQuestion();
+      const pId = patient.patient_id || patient.id;
+      const updated = await api.updatePatient(pId, profileForm);
+      setPatient({ ...patient, ...updated });
+      setUser({ ...patient, ...updated });
+      setProfileMsg(t.profileSavedSuccess);
+    } catch (err: any) {
+      alert(err.message || 'Failed to update profile.');
+    } finally {
+      setProfileSaving(false);
     }
   };
 
-  // Simulate Document Upload
-  const handleSimulateDocUpload = async () => {
-    setOcrLoading(true);
-    setTimeout(() => {
-      setUploadedDoc({
-        file_name: "hba1c_lab_report_june2026.pdf",
-        test_name: "HbA1c (Glycated Hemoglobin)",
-        result_value: "8.2 %",
-        reference_range: "< 5.7 %",
-        is_abnormal: true,
-        confidence: 0.97
-      });
-      setOcrLoading(false);
-    }, 1200);
-  };
-
-  // Load Final Summary
-  const handleFetchSummary = async () => {
+  // Load Medical History Records
+  const loadHistory = async (pId: string) => {
+    setHistoryLoading(true);
     try {
-      const summary = await api.getSummary(sessionId);
-      setCaseSummary(summary);
-    } catch (e) {
-      setCaseSummary({
-        chief_complaint_summary: "Patient presents with retrosternal chest heaviness and breathlessness for past 2 days.",
-        hpi_summary: "Severity rated 6/10. Aggravated by walking/climbing stairs, relieved by rest. Associated with mild dyspnea.",
-        past_history_summary: "Type 2 Diabetes Mellitus (2018), Essential Hypertension (2020).",
-        medications_summary: "Metformin 500mg BD, Amlodipine 5mg OD (Good compliance).",
-        allergies_summary: "Penicillin allergy documented in previous records. Contradiction flagged for physician review.",
-        investigations_summary: "Uploaded lab report shows HbA1c: 8.2% (Uncontrolled). Creatinine normal (1.0 mg/dL).",
-        ayush_summary: "Prakriti: Pitta-Kapha. Vikriti: Prana Vata and Sadhaka Pitta disturbance. Ahara Shakti: Sluggish digestion.",
-        red_flags_summary: "CRITICAL: Priority clinical assessment recommended for exertional chest pain + dyspnea with cardiovascular risk factors.",
-        evidence_links: [
-          { field: "Chief Complaint", source: "PATIENT_INTERVIEW", confidence: 0.95, reference: "Voice Node CC_01" },
-          { field: "HbA1c 8.2%", source: "OCR", confidence: 0.97, reference: "Uploaded Lab Document" }
-        ]
-      });
+      const records = await api.getPatientHistory(pId);
+      setHistoryRecords(records);
+    } catch (err) {
+      console.error('Failed to load history records:', err);
+    } finally {
+      setHistoryLoading(false);
     }
-    setStep('SUMMARY_REVIEW');
+  };
+
+  // Handle Medical Record Upload
+  const handleUploadRecord = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadData.title.trim() || !uploadData.file) {
+      setUploadMsg('Please specify a title and select a document file.');
+      return;
+    }
+
+    setUploading(true);
+    setUploadMsg(null);
+    try {
+      const pId = patient.patient_id || patient.id;
+      await api.uploadDocumentFile(pId, uploadData.file, uploadData.recordType, sessionId || undefined);
+
+      await loadHistory(pId);
+      setShowUploadModal(false);
+      setUploadData({ recordType: 'PRESCRIPTION', title: '', description: '', file: null });
+      alert('Document uploaded and processed successfully with OCR!');
+    } catch (err: any) {
+      setUploadMsg(err.message || 'Upload failed.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Delete Medical Record
+  const handleDeleteRecord = async (recordId: string) => {
+    if (!confirm('Are you sure you want to delete this medical record?')) return;
+    try {
+      const pId = patient.patient_id || patient.id;
+      await api.deletePatientHistory(pId, recordId);
+      setHistoryRecords(historyRecords.filter((r) => r.id !== recordId));
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete record.');
+    }
   };
 
   return (
-    <div className="flex-1 flex flex-col p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto w-full">
+    <div className="flex-1 flex min-h-[calc(100vh-65px)] bg-medgrey-50 dark:bg-medgrey-900 transition-colors">
       
-      {/* Kiosk Header / Step Bar */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
-        <div>
+      {/* Sliding Sidebar */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-medgrey-850 border-r border-medgrey-200 dark:border-medgrey-800 transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="p-4 border-b border-medgrey-200 dark:border-medgrey-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/30">
-              Kiosk Station 01
-            </span>
-            <span className="text-xs text-slate-400">Patient: <strong className="text-white">{patientName} ({medikioskId})</strong></span>
+            <div className="w-8 h-8 rounded-lg bg-medblue-600 text-white flex items-center justify-center font-bold text-xs">
+              MK
+            </div>
+            <div>
+              <div className="text-xs font-bold text-medgrey-900 dark:text-white">
+                {patient?.full_name || 'Patient'}
+              </div>
+              <div className="text-[10px] text-medblue-600 dark:text-medblue-400 font-mono font-medium">
+                {patient?.medikiosk_id || 'MK-P00000'}
+              </div>
+            </div>
           </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="md:hidden p-1 text-medgrey-500 hover:text-medgrey-700 dark:hover:text-white"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        {/* Step Breadcrumbs */}
-        <div className="flex items-center gap-1.5 text-xs">
-          {['IDENTIFICATION', 'LANGUAGE', 'CONSENT', 'INTERVIEW', 'AYUSH', 'DOCUMENTS', 'SUMMARY_REVIEW'].map((s, idx) => (
-            <div
-              key={s}
-              className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
-                step === s
-                  ? 'bg-sky-500 text-white shadow-md shadow-sky-500/30'
-                  : 'text-slate-500 bg-slate-900 border border-slate-800'
-              }`}
-            >
-              {idx + 1}
+        {/* Sidebar Nav Links */}
+        <nav className="p-3 space-y-1">
+          <button
+            onClick={() => setActiveTab('home')}
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'home'
+                ? 'bg-medblue-600 text-white shadow-sm'
+                : 'text-medgrey-600 dark:text-medgrey-300 hover:bg-medgrey-100 dark:hover:bg-medgrey-800'
+            }`}
+          >
+            <Home className="w-4 h-4" />
+            {t.navHome}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'profile'
+                ? 'bg-medblue-600 text-white shadow-sm'
+                : 'text-medgrey-600 dark:text-medgrey-300 hover:bg-medgrey-100 dark:hover:bg-medgrey-800'
+            }`}
+          >
+            <User className="w-4 h-4" />
+            {t.navProfile}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'history'
+                ? 'bg-medblue-600 text-white shadow-sm'
+                : 'text-medgrey-600 dark:text-medgrey-300 hover:bg-medgrey-100 dark:hover:bg-medgrey-800'
+            }`}
+          >
+            <History className="w-4 h-4" />
+            {t.navHistory}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'settings'
+                ? 'bg-medblue-600 text-white shadow-sm'
+                : 'text-medgrey-600 dark:text-medgrey-300 hover:bg-medgrey-100 dark:hover:bg-medgrey-800'
+            }`}
+          >
+            <SettingsIcon className="w-4 h-4" />
+            {t.navSettings}
+          </button>
+        </nav>
+
+        {/* Doctor Status Badge in Sidebar */}
+        {selectedDoctor && (
+          <div className="m-3 p-3 bg-medblue-50/70 dark:bg-medgrey-800 border border-medblue-200 dark:border-medgrey-700 rounded-xl">
+            <div className="text-[10px] uppercase font-bold text-medblue-700 dark:text-medblue-300 mb-1">
+              {t.assignedDoctor}
             </div>
-          ))}
+            <div className="text-xs font-bold text-medgrey-900 dark:text-white">
+              {selectedDoctor.full_name}
+            </div>
+            <div className="text-[11px] text-medgrey-500 dark:text-medgrey-400">
+              {selectedDoctor.specialization}
+            </div>
+          </div>
+        )}
+      </aside>
+
+      {/* Main Workspace Area */}
+      <div className="flex-1 flex flex-col overflow-y-auto">
+        
+        {/* Mobile Header with Sidebar Toggle */}
+        <div className="md:hidden flex items-center justify-between p-3 bg-white dark:bg-medgrey-850 border-b border-medgrey-200 dark:border-medgrey-800">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-1.5 rounded-lg bg-medgrey-100 dark:bg-medgrey-800 text-medgrey-700 dark:text-medgrey-200"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <span className="text-xs font-bold text-medgrey-800 dark:text-white">
+            {activeTab.toUpperCase()}
+          </span>
+          <div className="w-5" />
         </div>
-      </div>
 
-      {/* Real-time Safety Red Flag Banner */}
-      {activeRedFlags.length > 0 && (
-        <div className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/40 text-rose-200 flex items-start gap-3.5 shadow-lg shadow-rose-500/10 animate-pulse">
-          <AlertTriangle className="w-6 h-6 text-rose-400 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h4 className="text-sm font-bold text-rose-300 uppercase tracking-wide">Safety Alert: Priority Clinical Assessment Recommended</h4>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-500/30 text-rose-200">Non-Diagnostic Rule</span>
-            </div>
-            <p className="text-xs text-slate-300 mt-1">
-              Exertional chest discomfort with shortness of breath detected. Hospital triage station has been notified for immediate doctor room priority.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* STEP 1: IDENTIFICATION & LOGIN CHECK */}
-      {/* ========================================================================= */}
-      {step === 'IDENTIFICATION' && (
-        <div className="glass-panel p-6 sm:p-8 rounded-3xl space-y-6">
-          <div className="text-center max-w-xl mx-auto space-y-2">
-            <div className="w-14 h-14 rounded-2xl bg-sky-500/20 text-sky-400 flex items-center justify-center mx-auto mb-3">
-              <User className="w-7 h-7" />
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white">Patient Identification</h2>
-            <p className="text-sm text-slate-300">
-              Welcome to the pre-consultation case-taking station. Please verify your identity details.
-            </p>
-          </div>
-
-          <div className="max-w-md mx-auto bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4">
-            <div className="flex justify-between items-center py-2 border-b border-slate-800">
-              <span className="text-xs text-slate-400">Internal MediKiosk ID</span>
-              <span className="text-sm font-bold text-sky-400">{medikioskId}</span>
-            </div>
-            <div className="flex justify-between items-center py-2 border-b border-slate-800">
-              <span className="text-xs text-slate-400">Patient Name</span>
-              <span className="text-sm font-semibold text-white">{patientName}</span>
-            </div>
-            <div className="flex justify-between items-center py-2 border-b border-slate-800">
-              <span className="text-xs text-slate-400">Age & Gender</span>
-              <span className="text-sm font-medium text-slate-200">52 Years, Male</span>
-            </div>
-            <div className="flex justify-between items-center py-2">
-              <span className="text-xs text-slate-400">Linked ABHA Number</span>
-              <span className="text-xs font-mono text-emerald-400">91-4521-8890-1234</span>
-            </div>
-          </div>
-
-          <div className="flex justify-center pt-2">
-            <button
-              onClick={() => setStep('LANGUAGE')}
-              className="px-8 py-3.5 bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 text-white font-bold text-base rounded-2xl shadow-xl shadow-sky-500/20 flex items-center gap-2.5 transition-all"
-            >
-              <span>Confirm & Select Language</span>
-              <ArrowRight className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* STEP 2: LANGUAGE SELECTION */}
-      {/* ========================================================================= */}
-      {step === 'LANGUAGE' && (
-        <div className="glass-panel p-6 sm:p-8 rounded-3xl space-y-6">
-          <div className="text-center max-w-xl mx-auto space-y-2">
-            <div className="w-14 h-14 rounded-2xl bg-sky-500/20 text-sky-400 flex items-center justify-center mx-auto mb-3">
-              <Globe className="w-7 h-7" />
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white">Select Preferred Language</h2>
-            <p className="text-sm text-slate-300">
-              The kiosk will speak and display questions in your chosen language.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto">
-            {[
-              { code: 'ta', name: 'தமிழ் (Tamil)', desc: 'வணக்கம், உங்கள் மொழியில் உரையாடுங்கள்' },
-              { code: 'en', name: 'English', desc: 'Pre-consultation clinical voice intake' },
-              { code: 'hi', name: 'हिंदी (Hindi)', desc: 'नमस्ते, अपनी भाषा में परामर्श लें' }
-            ].map((l) => (
-              <button
-                key={l.code}
-                onClick={() => setSelectedLanguage(l.code)}
-                className={`p-5 rounded-2xl border text-left transition-all flex flex-col justify-between ${
-                  selectedLanguage === l.code
-                    ? 'bg-sky-500/20 border-sky-500 ring-2 ring-sky-500/40'
-                    : 'bg-slate-900/80 border-slate-800 hover:bg-slate-800'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-lg font-bold text-white">{l.name}</span>
-                    {selectedLanguage === l.code && <CheckCircle2 className="w-5 h-5 text-sky-400" />}
-                  </div>
-                  <p className="text-xs text-slate-400">{l.desc}</p>
+        {/* Content Container */}
+        <div className="flex-1 p-4 sm:p-8 max-w-5xl mx-auto w-full">
+          
+          {/* ============================================================ */}
+          {/* TAB 1: HOME (Doctor Selector & Pre-Consultation Intake)      */}
+          {/* ============================================================ */}
+          {activeTab === 'home' && (
+            <div className="space-y-6">
+              
+              {/* Doctor Selector Card (Always prompted before intake) */}
+              <div className="health-card p-5 sm:p-6">
+                <div className="flex items-center gap-2.5 mb-3">
+                  <Stethoscope className="w-5 h-5 text-medblue-600" />
+                  <h2 className="text-base font-bold text-medgrey-900 dark:text-white">
+                    {t.selectDoctorPrompt}
+                  </h2>
                 </div>
-              </button>
-            ))}
-          </div>
 
-          <div className="flex justify-between items-center max-w-2xl mx-auto pt-4">
-            <button
-              onClick={() => setStep('IDENTIFICATION')}
-              className="px-5 py-2.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 text-sm font-semibold rounded-xl flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back
-            </button>
-            <button
-              onClick={() => setStep('CONSENT')}
-              className="px-8 py-3.5 bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-sky-500/20 flex items-center gap-2"
-            >
-              Proceed to Consent <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
+                {/* Doctor Search & Live Selection */}
+                <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 text-medgrey-400 absolute left-3 top-3" />
+                    <input
+                      type="text"
+                      value={doctorSearchQuery}
+                      onChange={(e) => handleSearchDoctor(e.target.value)}
+                      placeholder={t.selectDoctorPlaceholder}
+                      className="w-full pl-9 pr-3 py-2 border border-medgrey-300 dark:border-medgrey-600 rounded-xl bg-white dark:bg-medgrey-900 text-medgrey-900 dark:text-white text-xs focus:ring-2 focus:ring-medblue-500"
+                    />
+                  </div>
 
-      {/* ========================================================================= */}
-      {/* STEP 3: GRANULAR CONSENT */}
-      {/* ========================================================================= */}
-      {step === 'CONSENT' && (
-        <div className="glass-panel p-6 sm:p-8 rounded-3xl space-y-6">
-          <div className="text-center max-w-xl mx-auto space-y-2">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-3">
-              <Shield className="w-7 h-7" />
+                  <select
+                    value={selectedDoctor?.id || selectedDoctor?.doctor_id || ''}
+                    onChange={(e) => {
+                      const doc = doctorsList.find((d) => (d.id === e.target.value || d.doctor_id === e.target.value));
+                      if (doc) setSelectedDoctor(doc);
+                    }}
+                    className="px-3 py-2 border border-medgrey-300 dark:border-medgrey-600 rounded-xl bg-white dark:bg-medgrey-900 text-medgrey-900 dark:text-white text-xs font-semibold"
+                  >
+                    {doctorsList.length === 0 ? (
+                      <option value="">No registered doctors found</option>
+                    ) : (
+                      doctorsList.map((d) => (
+                        <option key={d.id || d.doctor_id} value={d.id || d.doctor_id}>
+                          {d.full_name} ({d.specialization}) - {d.doctor_id}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
+                {/* Action Button */}
+                {intakeStep === 'SELECT_DOCTOR' && (
+                  <button
+                    onClick={startClinicalIntake}
+                    className="w-full sm:w-auto px-6 py-3 bg-medblue-600 hover:bg-medblue-700 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-medblue-500/20 flex items-center justify-center gap-2"
+                  >
+                    {t.startIntakeButton}
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Safety Red Flag Banner if Triggered */}
+              {activeRedFlags.length > 0 && (
+                <div className="p-4 bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-900 rounded-2xl flex items-start gap-3 text-rose-800 dark:text-rose-200">
+                  <AlertTriangle className="w-5 h-5 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-wider">
+                      Critical Safety Red Flag Triggered
+                    </div>
+                    <p className="text-xs mt-1">
+                      {activeRedFlags[0]?.title}: Priority clinical assessment advised. Notification dispatched to triage desk.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Active Questioning Graph Screen */}
+              {intakeStep === 'INTAKE_ACTIVE' && currentQuestion && (
+                <div className="health-card p-6 sm:p-8 space-y-6">
+                  {/* Progress Header */}
+                  <div className="flex items-center justify-between border-b border-medgrey-200 dark:border-medgrey-700 pb-4">
+                    <div>
+                      <span className="text-[11px] font-bold text-medblue-600 dark:text-medblue-400 uppercase tracking-wider">
+                        {currentQuestion.section}
+                      </span>
+                      <h3 className="text-lg sm:text-xl font-bold text-medgrey-900 dark:text-white mt-1">
+                        {currentQuestion.question_text}
+                      </h3>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs font-mono font-bold text-medgrey-500">
+                        {currentQuestion.current_index} / {currentQuestion.total_nodes}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Input Types */}
+                  {/* Type 1: Choice options */}
+                  {currentQuestion.input_type === 'choice' && currentQuestion.options.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {currentQuestion.options.map((opt: string) => (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => {
+                            setUserAnswer(opt);
+                            handleSubmitAnswer(opt);
+                          }}
+                          className={`p-3.5 rounded-xl border text-left text-xs font-semibold transition-all flex items-center justify-between ${
+                            userAnswer === opt
+                              ? 'bg-medblue-600 text-white border-medblue-600 shadow-sm'
+                              : 'bg-medgrey-50 dark:bg-medgrey-800/80 border-medgrey-200 dark:border-medgrey-700 text-medgrey-800 dark:text-medgrey-200 hover:border-medblue-400'
+                          }`}
+                        >
+                          <span>{opt}</span>
+                          <ChevronRight className="w-4 h-4 opacity-50" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Type 2: 1-10 Scale */}
+                  {currentQuestion.input_type === 'scale' && (
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-[11px] font-bold text-medgrey-500">
+                        <span>1 (Mild)</span>
+                        <span>5 (Moderate)</span>
+                        <span>10 (Severe)</span>
+                      </div>
+                      <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
+                        {['1','2','3','4','5','6','7','8','9','10'].map((num) => (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => {
+                              setUserAnswer(num);
+                              handleSubmitAnswer(num);
+                            }}
+                            className={`py-3 rounded-xl border font-bold text-sm transition-all ${
+                              userAnswer === num
+                                ? 'bg-medblue-600 text-white border-medblue-600 shadow-md'
+                                : 'bg-medgrey-50 dark:bg-medgrey-800 border-medgrey-200 dark:border-medgrey-700 text-medgrey-800 dark:text-medgrey-200 hover:border-medblue-400'
+                            }`}
+                          >
+                            {num}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Type 3: Open Text / Voice */}
+                  <div className="space-y-3 pt-2">
+                    <div className="relative">
+                      <textarea
+                        rows={3}
+                        value={userAnswer}
+                        onChange={(e) => setUserAnswer(e.target.value)}
+                        placeholder={t.typeYourAnswer}
+                        className="w-full p-3 border border-medgrey-300 dark:border-medgrey-600 rounded-xl bg-white dark:bg-medgrey-900 text-medgrey-900 dark:text-white text-xs focus:ring-2 focus:ring-medblue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      {/* Voice Microphone Button */}
+                      <button
+                        type="button"
+                        onClick={toggleVoiceInput}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
+                          isListening
+                            ? 'bg-rose-500 text-white border-rose-600 animate-voice-pulse'
+                            : 'bg-medgrey-100 dark:bg-medgrey-800 text-medgrey-700 dark:text-medgrey-300 border-medgrey-300 dark:border-medgrey-600 hover:bg-medgrey-200'
+                        }`}
+                      >
+                        {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4 text-medblue-600" />}
+                        <span>{isListening ? t.voiceListening : t.voiceInputButton}</span>
+                      </button>
+
+                      {/* Next Question Submission */}
+                      <button
+                        type="button"
+                        disabled={submittingAnswer || !userAnswer.trim()}
+                        onClick={() => handleSubmitAnswer()}
+                        className="px-5 py-2.5 bg-medblue-600 hover:bg-medblue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 disabled:opacity-50"
+                      >
+                        {submittingAnswer ? 'Saving...' : t.submitAnswer}
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Intake Completed & Summary Review */}
+              {intakeStep === 'SUMMARY_REVIEW' && (
+                <div className="health-card p-6 sm:p-8 space-y-5">
+                  <div className="flex items-center gap-3 text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="w-7 h-7" />
+                    <div>
+                      <h3 className="text-lg font-bold text-medgrey-900 dark:text-white">
+                        {t.intakeCompleted}
+                      </h3>
+                      <p className="text-xs text-medgrey-500 dark:text-medgrey-400">
+                        Your clinical answers have been synthesized into an evidence-linked longitudinal case file.
+                      </p>
+                    </div>
+                  </div>
+
+                  {summaryData && (
+                    <div className="space-y-4 pt-4 border-t border-medgrey-200 dark:border-medgrey-700 text-xs">
+                      <div className="p-4 bg-medgrey-50 dark:bg-medgrey-800/60 rounded-xl border border-medgrey-200 dark:border-medgrey-700 space-y-2">
+                        <div className="font-bold text-medblue-700 dark:text-medblue-300 uppercase tracking-wider text-[11px]">
+                          {t.chiefComplaint}
+                        </div>
+                        <p className="text-medgrey-800 dark:text-medgrey-200 font-medium">
+                          {summaryData.chief_complaint_summary}
+                        </p>
+                      </div>
+
+                      <div className="p-4 bg-medgrey-50 dark:bg-medgrey-800/60 rounded-xl border border-medgrey-200 dark:border-medgrey-700 space-y-2">
+                        <div className="font-bold text-medblue-700 dark:text-medblue-300 uppercase tracking-wider text-[11px]">
+                          {t.hpiTitle}
+                        </div>
+                        <p className="text-medgrey-800 dark:text-medgrey-200">
+                          {summaryData.hpi_summary}
+                        </p>
+                      </div>
+
+                      <div className="p-4 bg-medgrey-50 dark:bg-medgrey-800/60 rounded-xl border border-medgrey-200 dark:border-medgrey-700 space-y-2">
+                        <div className="font-bold text-medblue-700 dark:text-medblue-300 uppercase tracking-wider text-[11px]">
+                          {t.medicalHistorySection}
+                        </div>
+                        <p className="text-medgrey-800 dark:text-medgrey-200">
+                          {summaryData.past_history_summary}
+                        </p>
+                        <p className="text-medgrey-800 dark:text-medgrey-200">
+                          {summaryData.medications_summary}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-3 pt-4">
+                    <button
+                      onClick={() => setActiveTab('history')}
+                      className="px-4 py-2.5 bg-medblue-600 hover:bg-medblue-700 text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Attach Supporting Scans or Prescriptions
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIntakeStep('SELECT_DOCTOR');
+                        setSessionId(null);
+                        setCurrentQuestion(null);
+                      }}
+                      className="px-4 py-2.5 bg-medgrey-100 dark:bg-medgrey-800 text-medgrey-700 dark:text-white rounded-xl text-xs font-bold"
+                    >
+                      New Consultation
+                    </button>
+                  </div>
+                </div>
+              )}
+
             </div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white">Informed Patient Consent</h2>
-            <p className="text-sm text-slate-300">
-              MediKiosk collects and structures your clinical history to assist the physician. Your data is protected by strict privacy safeguards.
-            </p>
-          </div>
+          )}
 
-          <div className="max-w-2xl mx-auto space-y-3">
-            {[
-              { id: 'CLINICAL_HISTORY', title: 'Clinical History Intake', desc: 'Allows recording of current symptoms and past conditions for doctor review.' },
-              { id: 'VOICE_PROCESSING', title: 'Voice & Audio Processing', desc: 'Permits speech-to-text to transcribe your spoken answers into structured text.' },
-              { id: 'MEDICAL_DOCUMENTS', title: 'Document Scanning & OCR', desc: 'Allows camera/file OCR to extract laboratory values and active prescriptions.' },
-              { id: 'DOCTOR_SHARING', title: 'Doctor Dashboard Sharing', desc: 'Hands the verified clinical case summary directly to the consulting physician.' },
-              { id: 'RESEARCH_ANALYTICS', title: 'Anonymized Research (Optional)', desc: 'Never mandatory for medical care. Fully de-identified research use only.' }
-            ].map((c) => (
-              <div
-                key={c.id}
-                onClick={() => setConsents(prev => ({ ...prev, [c.id]: !prev[c.id] }))}
-                className={`p-4 rounded-xl border flex items-start gap-3.5 cursor-pointer transition-all ${
-                  consents[c.id]
-                    ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-100'
-                    : 'bg-slate-900/60 border-slate-800 text-slate-400'
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={!!consents[c.id]}
-                  onChange={() => {}}
-                  className="w-5 h-5 rounded border-slate-700 bg-slate-900 text-emerald-500 mt-0.5 shrink-0"
-                />
+          {/* ============================================================ */}
+          {/* TAB 2: PROFILE (Real Demographics & Supabase Sync)          */}
+          {/* ============================================================ */}
+          {activeTab === 'profile' && (
+            <div className="health-card p-6 sm:p-8 space-y-6">
+              <div className="flex items-center justify-between border-b border-medgrey-200 dark:border-medgrey-700 pb-4">
                 <div>
-                  <h4 className="text-sm font-bold text-white">{c.title}</h4>
-                  <p className="text-xs text-slate-300 mt-0.5">{c.desc}</p>
+                  <h2 className="text-xl font-bold text-medgrey-900 dark:text-white">
+                    {t.profileTitle}
+                  </h2>
+                  <p className="text-xs text-medgrey-500 dark:text-medgrey-400 mt-0.5">
+                    Your verified demographic details stored in MediKiosk EHR.
+                  </p>
+                </div>
+                <div className="px-3 py-1 bg-medblue-50 dark:bg-medblue-950/50 border border-medblue-200 dark:border-medblue-800 rounded-lg text-xs font-mono font-bold text-medblue-700 dark:text-medblue-300">
+                  {patient?.medikiosk_id || 'MK-P00000'}
                 </div>
               </div>
-            ))}
-          </div>
 
-          <div className="flex justify-between items-center max-w-2xl mx-auto pt-4">
-            <button
-              onClick={() => setStep('LANGUAGE')}
-              className="px-5 py-2.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 text-sm font-semibold rounded-xl flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back
-            </button>
-            <button
-              onClick={() => setStep('INTERVIEW')}
-              className="px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2"
-            >
-              Record Consent & Start Interview <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
+              {profileMsg && (
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 rounded-xl text-xs flex items-center gap-2 font-semibold">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{profileMsg}</span>
+                </div>
+              )}
 
-      {/* ========================================================================= */}
-      {/* STEP 4: ADAPTIVE CLINICAL INTERVIEW (Voice + Touch fallback) */}
-      {/* ========================================================================= */}
-      {step === 'INTERVIEW' && (
-        <div className="glass-panel p-6 sm:p-8 rounded-3xl space-y-6">
-          {/* Question Header */}
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-            <span className="text-xs font-bold text-sky-400 uppercase tracking-wider">
-              {currentQuestion?.section || 'History of Present Illness'}
-            </span>
-            <span className="text-xs text-slate-400">
-              Question {currentQuestion?.current_index || 1} of {currentQuestion?.total_nodes || 12}
-            </span>
-          </div>
+              <form onSubmit={handleSaveProfile} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-medgrey-700 dark:text-medgrey-300 mb-1">
+                      {t.fullName}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={profileForm.full_name}
+                      onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
+                      className="w-full px-3 py-2 border border-medgrey-300 dark:border-medgrey-600 rounded-xl bg-white dark:bg-medgrey-900 text-medgrey-900 dark:text-white text-xs"
+                    />
+                  </div>
 
-          {/* Question Card */}
-          <div className="bg-slate-900/90 border border-slate-800 p-6 sm:p-8 rounded-2xl text-center space-y-4">
-            <h3 className="text-xl sm:text-2xl font-bold text-white leading-snug">
-              {currentQuestion?.question_text || "What is the primary medical issue or symptom bringing you in today?"}
-            </h3>
+                  <div>
+                    <label className="block text-xs font-semibold text-medgrey-700 dark:text-medgrey-300 mb-1">
+                      {t.phoneNumber}
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={profileForm.phone}
+                      onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-medgrey-300 dark:border-medgrey-600 rounded-xl bg-white dark:bg-medgrey-900 text-medgrey-900 dark:text-white text-xs"
+                    />
+                  </div>
 
-            {/* Audio Button to re-listen */}
-            <button
-              onClick={() => speakText(currentQuestion?.question_text || '')}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-300 text-xs font-semibold transition-colors"
-            >
-              <Volume2 className="w-4 h-4" />
-              Listen to question again
-            </button>
-          </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-medgrey-700 dark:text-medgrey-300 mb-1">
+                      {t.emailAddress}
+                    </label>
+                    <input
+                      type="email"
+                      value={profileForm.email}
+                      onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                      className="w-full px-3 py-2 border border-medgrey-300 dark:border-medgrey-600 rounded-xl bg-white dark:bg-medgrey-900 text-medgrey-900 dark:text-white text-xs"
+                    />
+                  </div>
 
-          {/* Input Modality: Voice Target + Touch Choices */}
-          <div className="space-y-4">
-            
-            {/* Voice Button */}
-            <div className="flex flex-col items-center justify-center p-4">
-              <button
-                onClick={toggleVoiceRecording}
-                className={`w-20 h-20 rounded-full flex items-center justify-center transition-all ${
-                  isListening
-                    ? 'bg-rose-500 text-white animate-voice-pulse ring-4 ring-rose-500/50'
-                    : 'bg-sky-500 hover:bg-sky-400 text-white shadow-xl shadow-sky-500/30 hover:scale-105'
-                }`}
-                title="Tap to speak"
-              >
-                {isListening ? <MicOff className="w-8 h-8" /> : <Mic className="w-8 h-8" />}
-              </button>
-              <p className="text-xs font-semibold text-slate-400 mt-2">
-                {isListening ? 'Listening to your voice... Speak now' : 'Tap to speak your answer'}
-              </p>
-            </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-medgrey-700 dark:text-medgrey-300 mb-1">
+                      {t.age} / {t.gender}
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="number"
+                        value={profileForm.age}
+                        onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })}
+                        placeholder="Age"
+                        className="w-full px-3 py-2 border border-medgrey-300 dark:border-medgrey-600 rounded-xl bg-white dark:bg-medgrey-900 text-medgrey-900 dark:text-white text-xs"
+                      />
+                      <select
+                        value={profileForm.gender}
+                        onChange={(e) => setProfileForm({ ...profileForm, gender: e.target.value })}
+                        className="w-full px-2 py-2 border border-medgrey-300 dark:border-medgrey-600 rounded-xl bg-white dark:bg-medgrey-900 text-medgrey-900 dark:text-white text-xs"
+                      >
+                        <option value="Male">{t.genderMale}</option>
+                        <option value="Female">{t.genderFemale}</option>
+                        <option value="Other">{t.genderOther}</option>
+                      </select>
+                    </div>
+                  </div>
 
-            {/* Answer Display & Typing Fallback */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">
-                Your Answer (Voice Transcript or Touch selection):
-              </label>
-              <textarea
-                rows={2}
-                value={userAnswer}
-                onChange={(e) => setUserAnswer(e.target.value)}
-                placeholder="Spoken words will appear here, or you can type/select below..."
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-sky-500"
-              />
-            </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-medgrey-700 dark:text-medgrey-300 mb-1">
+                      {t.address}
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.address}
+                      onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })}
+                      className="w-full px-3 py-2 border border-medgrey-300 dark:border-medgrey-600 rounded-xl bg-white dark:bg-medgrey-900 text-medgrey-900 dark:text-white text-xs"
+                    />
+                  </div>
 
-            {/* Multi-Choice / Scale Touch Options */}
-            {currentQuestion?.options && currentQuestion.options.length > 0 && (
-              <div className="space-y-2">
-                <span className="text-xs font-semibold text-slate-400">Quick Touch Options:</span>
-                <div className="flex flex-wrap gap-2">
-                  {currentQuestion.options.map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => setUserAnswer(opt)}
-                      className={`px-4 py-2.5 rounded-xl text-xs font-medium border transition-all ${
-                        userAnswer === opt
-                          ? 'bg-sky-500 text-white border-sky-400 shadow-md shadow-sky-500/20'
-                          : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800'
-                      }`}
+                  <div>
+                    <label className="block text-xs font-semibold text-medgrey-700 dark:text-medgrey-300 mb-1">
+                      {t.bloodGroup}
+                    </label>
+                    <select
+                      value={profileForm.blood_group}
+                      onChange={(e) => setProfileForm({ ...profileForm, blood_group: e.target.value })}
+                      className="w-full px-3 py-2 border border-medgrey-300 dark:border-medgrey-600 rounded-xl bg-white dark:bg-medgrey-900 text-medgrey-900 dark:text-white text-xs"
                     >
-                      {opt}
-                    </button>
+                      <option value="A+">A+</option>
+                      <option value="A-">A-</option>
+                      <option value="B+">B+</option>
+                      <option value="B-">B-</option>
+                      <option value="O+">O+</option>
+                      <option value="O-">O-</option>
+                      <option value="AB+">AB+</option>
+                      <option value="AB-">AB-</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-medgrey-700 dark:text-medgrey-300 mb-1">
+                      {t.emergencyContactName}
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.emergency_contact_name}
+                      onChange={(e) => setProfileForm({ ...profileForm, emergency_contact_name: e.target.value })}
+                      className="w-full px-3 py-2 border border-medgrey-300 dark:border-medgrey-600 rounded-xl bg-white dark:bg-medgrey-900 text-medgrey-900 dark:text-white text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-medgrey-700 dark:text-medgrey-300 mb-1">
+                      {t.emergencyContactPhone}
+                    </label>
+                    <input
+                      type="tel"
+                      value={profileForm.emergency_contact_phone}
+                      onChange={(e) => setProfileForm({ ...profileForm, emergency_contact_phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-medgrey-300 dark:border-medgrey-600 rounded-xl bg-white dark:bg-medgrey-900 text-medgrey-900 dark:text-white text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={profileSaving}
+                    className="px-6 py-2.5 bg-medblue-600 hover:bg-medblue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                  >
+                    {profileSaving ? 'Saving...' : t.saveProfileChanges}
+                  </button>
+                </div>
+              </form>
+
+              {/* Explicit Consent Active Badge */}
+              <div className="p-3.5 bg-medblue-50/50 dark:bg-medgrey-800 border border-medblue-200 dark:border-medgrey-700 rounded-xl flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 text-medblue-700 dark:text-medblue-300 font-bold">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>{t.consentStatusActive}</span>
+                </div>
+                <span className="text-[11px] text-medgrey-500">
+                  ABDM / DPDP Registered
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* ============================================================ */}
+          {/* TAB 3: MEDICAL HISTORY (Real CRUD & File Upload with OCR)    */}
+          {/* ============================================================ */}
+          {activeTab === 'history' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-bold text-medgrey-900 dark:text-white">
+                    {t.historyTitle}
+                  </h2>
+                  <p className="text-xs text-medgrey-500 dark:text-medgrey-400">
+                    Upload and manage your medical documents, prescriptions, and lab test reports.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setShowUploadModal(true)}
+                  className="px-4 py-2.5 bg-medblue-600 hover:bg-medblue-700 text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 transition-all self-start sm:self-auto"
+                >
+                  <Plus className="w-4 h-4" />
+                  {t.uploadRecordButton}
+                </button>
+              </div>
+
+              {/* Records List or Clean Empty State */}
+              {historyLoading ? (
+                <div className="health-card p-12 text-center text-xs text-medgrey-500">
+                  Loading medical records...
+                </div>
+              ) : historyRecords.length === 0 ? (
+                <div className="health-card p-12 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-xl bg-medblue-50 dark:bg-medgrey-800 text-medblue-600 flex items-center justify-center mx-auto">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-base font-bold text-medgrey-800 dark:text-white">
+                    {t.emptyHistoryTitle}
+                  </h3>
+                  <p className="text-xs text-medgrey-500 dark:text-medgrey-400 max-w-md mx-auto">
+                    {t.emptyHistorySub}
+                  </p>
+                  <button
+                    onClick={() => setShowUploadModal(true)}
+                    className="mt-2 px-5 py-2 bg-medblue-600 text-white text-xs font-bold rounded-xl shadow-sm hover:bg-medblue-700 transition-all"
+                  >
+                    {t.uploadRecordButton}
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3">
+                  {historyRecords.map((rec) => (
+                    <div
+                      key={rec.id}
+                      className="health-card p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-medblue-300 dark:hover:border-medblue-700 transition-all"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-medblue-50 dark:bg-medblue-950/50 text-medblue-600 flex items-center justify-center shrink-0">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-medgrey-900 dark:text-white">
+                              {rec.title}
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-medgrey-100 dark:bg-medgrey-800 text-medgrey-700 dark:text-medgrey-300">
+                              {rec.record_type}
+                            </span>
+                          </div>
+                          {rec.description && (
+                            <p className="text-xs text-medgrey-500 dark:text-medgrey-400 mt-0.5">
+                              {rec.description}
+                            </p>
+                          )}
+                          {rec.ocr_extracted_text && (
+                            <div className="mt-2 p-2 bg-medgrey-50 dark:bg-medgrey-900 rounded-lg text-[11px] text-medgrey-600 dark:text-medgrey-300 max-w-xl">
+                              <span className="font-bold text-medblue-600">OCR Findings: </span>
+                              {rec.ocr_extracted_text.slice(0, 150)}...
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-end sm:self-center">
+                        <span className="text-[11px] font-mono text-medgrey-400">
+                          {rec.date_recorded}
+                        </span>
+                        <button
+                          onClick={() => handleDeleteRecord(rec.id)}
+                          className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
+                          title={t.deleteRecord}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
                   ))}
                 </div>
-              </div>
-            )}
-          </div>
+              )}
 
-          {/* Nav / Continue buttons */}
-          <div className="flex justify-between items-center pt-4 border-t border-slate-800">
-            <button
-              onClick={() => setStep('CONSENT')}
-              className="px-5 py-2.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 text-sm font-semibold rounded-xl flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back
-            </button>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setStep('AYUSH')}
-                className="px-5 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-sm font-semibold rounded-xl"
-              >
-                Skip to AYUSH Mode
-              </button>
-              <button
-                onClick={handleAnswerSubmit}
-                disabled={!userAnswer.trim()}
-                className="px-8 py-3.5 bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-sky-500/20 flex items-center gap-2 disabled:opacity-40"
-              >
-                Next Question <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              {/* Upload Document Modal */}
+              {showUploadModal && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                  <div className="bg-white dark:bg-medgrey-800 p-6 rounded-2xl max-w-md w-full border border-medgrey-200 dark:border-medgrey-700 shadow-2xl">
+                    <h3 className="text-base font-bold text-medgrey-900 dark:text-white mb-2">
+                      {t.uploadModalTitle}
+                    </h3>
+                    <p className="text-xs text-medgrey-500 dark:text-medgrey-400 mb-4">
+                      Upload your prescription scan or lab report for automated OCR extraction.
+                    </p>
 
-      {/* ========================================================================= */}
-      {/* STEP 5: AYUSH MODE (Dashavidha Pariksha & Ahara-Vihara) */}
-      {/* ========================================================================= */}
-      {step === 'AYUSH' && (
-        <div className="glass-panel-gold p-6 sm:p-8 rounded-3xl space-y-6">
-          <div className="text-center max-w-xl mx-auto space-y-2">
-            <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center mx-auto mb-2">
-              <Sparkles className="w-7 h-7" />
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-amber-100">AYUSH Clinical Assessment</h2>
-            <p className="text-xs text-amber-200/80">
-              Capturing classical Dashavidha Pariksha (Ten-fold examination) and Ahara-Vihara (Diet & Regimen) parameters.
-            </p>
-          </div>
+                    {uploadMsg && (
+                      <div className="mb-3 p-2.5 rounded-xl bg-rose-50 text-rose-700 text-xs">
+                        {uploadMsg}
+                      </div>
+                    )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            
-            {/* Prakriti & Vikriti Card */}
-            <div className="bg-slate-950/80 border border-amber-500/30 p-5 rounded-2xl space-y-3">
-              <h3 className="text-sm font-bold text-amber-300 flex items-center gap-2">
-                <span>1. Baseline Prakriti & Vikriti</span>
-              </h3>
-              <p className="text-xs text-slate-300">
-                Preliminary estimation based on thermal sensitivity, physical frame, and sleep characteristics:
-              </p>
-              <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/20 flex justify-between items-center">
-                <span className="text-xs font-semibold text-amber-200">Constitutional Type (Prakriti)</span>
-                <span className="text-xs font-bold text-white px-2.5 py-1 rounded bg-amber-600/30 border border-amber-500/40">
-                  Pitta-Kapha (V25% P45% K30%)
-                </span>
-              </div>
-              <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 flex justify-between items-center">
-                <span className="text-xs text-slate-300">Doshic Imbalance (Vikriti)</span>
-                <span className="text-xs font-bold text-rose-300">Prana Vata / Sadhaka Pitta</span>
-              </div>
-            </div>
+                    <form onSubmit={handleUploadRecord} className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-medgrey-700 dark:text-medgrey-300 mb-1">
+                          {t.recordType}
+                        </label>
+                        <select
+                          value={uploadData.recordType}
+                          onChange={(e) => setUploadData({ ...uploadData, recordType: e.target.value })}
+                          className="w-full px-3 py-2 border border-medgrey-300 dark:border-medgrey-600 rounded-xl bg-white dark:bg-medgrey-900 text-medgrey-900 dark:text-white text-xs"
+                        >
+                          <option value="PRESCRIPTION">{t.recordTypePrescription}</option>
+                          <option value="LAB_TEST">{t.recordTypeLabTest}</option>
+                          <option value="SCAN_REPORT">{t.recordTypeScanReport}</option>
+                          <option value="DISCHARGE_SUMMARY">{t.recordTypeDischarge}</option>
+                        </select>
+                      </div>
 
-            {/* Agni & Ahara Shakti */}
-            <div className="bg-slate-950/80 border border-amber-500/30 p-5 rounded-2xl space-y-3">
-              <h3 className="text-sm font-bold text-amber-300">2. Ahara Shakti (Digestive Capacity)</h3>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between items-center p-2.5 bg-slate-900 rounded-lg">
-                  <span className="text-slate-300">Abhyavaharana Shakti (Intake Power)</span>
-                  <span className="font-semibold text-amber-300">Madhyama (Moderate)</span>
+                      <div>
+                        <label className="block text-xs font-semibold text-medgrey-700 dark:text-medgrey-300 mb-1">
+                          {t.recordTitle} *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={uploadData.title}
+                          onChange={(e) => setUploadData({ ...uploadData, title: e.target.value })}
+                          placeholder="e.g. Chest X-Ray / Dr. Mehta Prescription"
+                          className="w-full px-3 py-2 border border-medgrey-300 dark:border-medgrey-600 rounded-xl bg-white dark:bg-medgrey-900 text-medgrey-900 dark:text-white text-xs"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-medgrey-700 dark:text-medgrey-300 mb-1">
+                          {t.recordDescription}
+                        </label>
+                        <input
+                          type="text"
+                          value={uploadData.description}
+                          onChange={(e) => setUploadData({ ...uploadData, description: e.target.value })}
+                          placeholder="Additional notes"
+                          className="w-full px-3 py-2 border border-medgrey-300 dark:border-medgrey-600 rounded-xl bg-white dark:bg-medgrey-900 text-medgrey-900 dark:text-white text-xs"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-medgrey-700 dark:text-medgrey-300 mb-1">
+                          {t.selectFile} *
+                        </label>
+                        <input
+                          type="file"
+                          accept=".pdf,.png,.jpg,.jpeg"
+                          required
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              setUploadData({ ...uploadData, file: e.target.files[0] });
+                            }
+                          }}
+                          className="w-full text-xs text-medgrey-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-medblue-50 file:text-medblue-700 hover:file:bg-medblue-100 cursor-pointer"
+                        />
+                      </div>
+
+                      <div className="flex gap-2 pt-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowUploadModal(false)}
+                          className="flex-1 py-2 bg-medgrey-100 dark:bg-medgrey-700 text-medgrey-700 dark:text-white rounded-xl text-xs font-bold"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={uploading}
+                          className="flex-1 py-2 bg-medblue-600 hover:bg-medblue-700 text-white rounded-xl text-xs font-bold shadow-sm"
+                        >
+                          {uploading ? 'Processing OCR...' : 'Upload & Extract'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center p-2.5 bg-slate-900 rounded-lg">
-                  <span className="text-slate-300">Jarana Shakti (Digestion Speed)</span>
-                  <span className="font-semibold text-rose-300">Avara (Sluggish / Heaviness)</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Vyayama & Sara */}
-            <div className="bg-slate-950/80 border border-amber-500/30 p-5 rounded-2xl space-y-3">
-              <h3 className="text-sm font-bold text-amber-300">3. Vyayama Shakti (Physical Stamina)</h3>
-              <p className="text-xs text-slate-300">
-                Patient reports fatigue and breathlessness upon climbing stairs or walking briskly.
-              </p>
-              <div className="flex items-center gap-2">
-                <span className="px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-bold">
-                  Avara (Reduced Stamina)
-                </span>
-              </div>
-            </div>
-
-            {/* Ahara-Vihara Routine */}
-            <div className="bg-slate-950/80 border border-amber-500/30 p-5 rounded-2xl space-y-3">
-              <h3 className="text-sm font-bold text-amber-300">4. Ahara-Vihara (Diet & Sleep)</h3>
-              <ul className="space-y-1.5 text-xs text-slate-300">
-                <li>• <strong>Diet:</strong> Warm, cooked South Indian vegetarian meals; irregular lunch hours.</li>
-                <li>• <strong>Sleep:</strong> 6 hours; disturbed past 2 nights by chest tightness.</li>
-                <li>• <strong>Exercise:</strong> Walking 15 mins/day, recently discontinued due to dyspnea.</li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="flex justify-between items-center pt-4 border-t border-amber-500/20">
-            <button
-              onClick={() => setStep('INTERVIEW')}
-              className="px-5 py-2.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 text-sm font-semibold rounded-xl flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back to Questions
-            </button>
-            <button
-              onClick={() => setStep('DOCUMENTS')}
-              className="px-8 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-sm rounded-xl shadow-lg shadow-amber-500/20 flex items-center gap-2"
-            >
-              Confirm AYUSH & Scan Documents <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* STEP 6: MEDICAL DOCUMENTS & OCR SCANNING */}
-      {/* ========================================================================= */}
-      {step === 'DOCUMENTS' && (
-        <div className="glass-panel p-6 sm:p-8 rounded-3xl space-y-6">
-          <div className="text-center max-w-xl mx-auto space-y-2">
-            <div className="w-14 h-14 rounded-2xl bg-sky-500/20 text-sky-400 flex items-center justify-center mx-auto mb-2">
-              <FileUp className="w-7 h-7" />
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white">Upload / Scan Clinical Records</h2>
-            <p className="text-xs text-slate-300">
-              Hold previous prescriptions or laboratory reports up to the camera or upload a file. The OCR engine will extract clinical entities.
-            </p>
-          </div>
-
-          {/* Scanner Simulation Card */}
-          <div className="max-w-xl mx-auto border-2 border-dashed border-slate-700 hover:border-sky-500/50 p-6 rounded-2xl text-center space-y-3 bg-slate-900/60 transition-colors">
-            <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
-              <FileUp className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-white">Scan Prescription or Lab Report</p>
-              <p className="text-xs text-slate-400 mt-1">Supports PDF, JPG, PNG (Max 15MB)</p>
-            </div>
-            <button
-              onClick={handleSimulateDocUpload}
-              disabled={ocrLoading}
-              className="px-6 py-2.5 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl shadow-md shadow-sky-500/20 transition-colors disabled:opacity-50"
-            >
-              {ocrLoading ? 'Processing OCR & Extracting Facts...' : 'Simulate Scan: Lab Report (HbA1c)'}
-            </button>
-          </div>
-
-          {/* Extracted Document View */}
-          {uploadedDoc && (
-            <div className="max-w-xl mx-auto bg-slate-900 border border-emerald-500/30 p-5 rounded-2xl space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4" /> OCR Extraction Successful
-                </span>
-                <span className="text-[11px] font-mono text-slate-400">Confidence: 97%</span>
-              </div>
-              <div className="space-y-1.5 text-xs text-slate-200">
-                <div className="flex justify-between p-2 bg-slate-800 rounded-lg">
-                  <span className="text-slate-400">Test Extracted:</span>
-                  <span className="font-semibold">{uploadedDoc.test_name}</span>
-                </div>
-                <div className="flex justify-between p-2 bg-slate-800 rounded-lg">
-                  <span className="text-slate-400">Result Value:</span>
-                  <span className="font-bold text-rose-400">{uploadedDoc.result_value} (Abnormal / High Risk)</span>
-                </div>
-                <div className="flex justify-between p-2 bg-slate-800 rounded-lg">
-                  <span className="text-slate-400">Reference Range:</span>
-                  <span>{uploadedDoc.reference_range}</span>
-                </div>
-              </div>
-              <p className="text-[11px] text-amber-300">
-                ⚠️ Handwriting/OCR extracted values carry a confidence score and are subject to final doctor verification.
-              </p>
+              )}
             </div>
           )}
 
-          <div className="flex justify-between items-center max-w-xl mx-auto pt-4 border-t border-slate-800">
-            <button
-              onClick={() => setStep('AYUSH')}
-              className="px-5 py-2.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 text-sm font-semibold rounded-xl flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back
-            </button>
-            <button
-              onClick={handleFetchSummary}
-              className="px-8 py-3.5 bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-sky-500/20 flex items-center gap-2"
-            >
-              Generate Case Summary <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
+          {/* ============================================================ */}
+          {/* TAB 4: SETTINGS (Language & Theme)                          */}
+          {/* ============================================================ */}
+          {activeTab === 'settings' && (
+            <div className="health-card p-6 sm:p-8 space-y-6">
+              <h2 className="text-xl font-bold text-medgrey-900 dark:text-white">
+                {t.settingsTitle}
+              </h2>
 
-      {/* ========================================================================= */}
-      {/* STEP 7: LONGITUDINAL AI CASE SUMMARY REVIEW */}
-      {/* ========================================================================= */}
-      {step === 'SUMMARY_REVIEW' && (
-        <div className="glass-panel p-6 sm:p-8 rounded-3xl space-y-6">
-          <div className="text-center max-w-xl mx-auto space-y-2">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-2">
-              <CheckCircle2 className="w-7 h-7" />
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white">Pre-Consultation Case Summary</h2>
-            <p className="text-xs text-slate-300">
-              Please review the case summary prepared by AI for your doctor. You may request corrections if needed.
-            </p>
-          </div>
-
-          {caseSummary && (
-            <div className="space-y-4 max-w-3xl mx-auto">
-              {/* Chief Complaint & HPI */}
-              <div className="bg-slate-900/90 border border-slate-800 p-5 rounded-2xl space-y-2">
-                <h4 className="text-xs font-bold text-sky-400 uppercase tracking-wider">Chief Complaint & Present History</h4>
-                <p className="text-sm font-medium text-white">{caseSummary.chief_complaint_summary}</p>
-                <p className="text-xs text-slate-300">{caseSummary.hpi_summary}</p>
-              </div>
-
-              {/* Past History & Meds */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl space-y-1.5">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase">Long-Term Medical History</h4>
-                  <p className="text-xs text-slate-200">{caseSummary.past_history_summary}</p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-medgrey-700 dark:text-medgrey-300 mb-2">
+                    {t.languageLabel}
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { code: 'en', label: 'English' },
+                      { code: 'kn', label: 'ಕನ್ನಡ (Kannada)' },
+                      { code: 'ta', label: 'தமிழ் (Tamil)' },
+                      { code: 'hi', label: 'हिंदी (Hindi)' },
+                    ].map((item) => (
+                      <button
+                        key={item.code}
+                        onClick={() => setLang(item.code as any)}
+                        className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
+                          lang === item.code
+                            ? 'bg-medblue-600 text-white border-medblue-600 shadow-sm'
+                            : 'bg-medgrey-50 dark:bg-medgrey-800 border-medgrey-200 dark:border-medgrey-700 text-medgrey-800 dark:text-medgrey-200 hover:border-medblue-400'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl space-y-1.5">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase">Active Medications</h4>
-                  <p className="text-xs text-slate-200">{caseSummary.medications_summary}</p>
+
+                <div className="pt-4 border-t border-medgrey-200 dark:border-medgrey-700">
+                  <label className="block text-xs font-bold text-medgrey-700 dark:text-medgrey-300 mb-2">
+                    {t.themeLabel}
+                  </label>
+                  <div className="grid grid-cols-2 gap-3 max-w-sm">
+                    <button
+                      onClick={() => { if (theme !== 'light') toggleTheme(); }}
+                      className={`p-3 rounded-xl border text-xs font-bold transition-all text-center ${
+                        theme === 'light'
+                          ? 'bg-medblue-600 text-white border-medblue-600 shadow-sm'
+                          : 'bg-medgrey-50 dark:bg-medgrey-800 border-medgrey-200 dark:border-medgrey-700 text-medgrey-800 dark:text-medgrey-200'
+                      }`}
+                    >
+                      {t.themeLight}
+                    </button>
+                    <button
+                      onClick={() => { if (theme !== 'dark') toggleTheme(); }}
+                      className={`p-3 rounded-xl border text-xs font-bold transition-all text-center ${
+                        theme === 'dark'
+                          ? 'bg-medblue-600 text-white border-medblue-600 shadow-sm'
+                          : 'bg-medgrey-50 dark:bg-medgrey-800 border-medgrey-200 dark:border-medgrey-700 text-medgrey-800 dark:text-medgrey-200'
+                      }`}
+                    >
+                      {t.themeDark}
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {/* Allergy Contradiction Alert */}
-              <div className="bg-amber-500/10 border border-amber-500/40 p-4 rounded-2xl space-y-1">
-                <h4 className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-                  <AlertTriangle className="w-4 h-4" /> Cross-Check Alert: Documented Allergy
-                </h4>
-                <p className="text-xs text-amber-100">
-                  {caseSummary.allergies_summary}
-                </p>
-              </div>
-
-              {/* AYUSH Overview */}
-              <div className="bg-amber-500/5 border border-amber-500/20 p-4 rounded-2xl space-y-1">
-                <h4 className="text-xs font-bold text-amber-400 uppercase">AYUSH Dashavidha Pariksha Findings</h4>
-                <p className="text-xs text-slate-300">{caseSummary.ayush_summary}</p>
+                <div className="pt-4 border-t border-medgrey-200 dark:border-medgrey-700">
+                  <div className="p-4 bg-medgrey-50 dark:bg-medgrey-800/50 rounded-xl border border-medgrey-200 dark:border-medgrey-700 text-xs text-medgrey-600 dark:text-medgrey-400 space-y-1">
+                    <div className="font-bold text-medgrey-800 dark:text-medgrey-200">
+                      Statutory Compliance & Data Rights
+                    </div>
+                    <p>{t.privacyPolicyNotice}</p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
-          <div className="flex justify-between items-center max-w-3xl mx-auto pt-4 border-t border-slate-800">
-            <button
-              onClick={() => setStep('DOCUMENTS')}
-              className="px-5 py-2.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 text-sm font-semibold rounded-xl flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back
-            </button>
-            <button
-              onClick={() => setStep('COMPLETED')}
-              className="px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2"
-            >
-              Submit to Doctor & Get Token <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
         </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* STEP 8: QUEUE TOKEN GENERATED & COMPLETED */}
-      {/* ========================================================================= */}
-      {step === 'COMPLETED' && (
-        <div className="glass-panel p-8 sm:p-12 rounded-3xl text-center max-w-xl mx-auto space-y-6">
-          <div className="w-20 h-20 rounded-3xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto shadow-xl shadow-emerald-500/20 animate-bounce">
-            <Check className="w-10 h-10" />
-          </div>
-
-          <div className="space-y-2">
-            <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
-              Intake Transferred to OPD Doctor
-            </span>
-            <h2 className="text-3xl font-extrabold text-white">You Are All Set!</h2>
-            <p className="text-xs text-slate-300">
-              Your clinical history, AYUSH assessment, and lab documents have been handed over to the physician.
-            </p>
-          </div>
-
-          {/* Queue Token Card */}
-          <div className="bg-slate-900 border border-slate-700 p-6 rounded-2xl space-y-3">
-            <div className="text-xs text-slate-400 uppercase font-semibold">Your Consultation Queue Token</div>
-            <div className="text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-teal-300">
-              OPD-12
-            </div>
-            <div className="flex justify-center items-center gap-4 text-xs text-slate-300 pt-2">
-              <span>Patient: <strong>{patientName}</strong></span>
-              <span>•</span>
-              <span>ID: <strong>{medikioskId}</strong></span>
-            </div>
-            <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold">
-              Priority Priority: High (Due to Red Flag Alert)
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2">
-            <button
-              onClick={() => router.push('/doctor')}
-              className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
-            >
-              Open Doctor Portal (Review Case) <ArrowRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => {
-                setStep('IDENTIFICATION');
-                setActiveRedFlags([]);
-              }}
-              className="px-5 py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 text-sm font-semibold rounded-xl border border-slate-800"
-            >
-              Start Another Patient
-            </button>
-          </div>
-        </div>
-      )}
+      </div>
 
     </div>
   );

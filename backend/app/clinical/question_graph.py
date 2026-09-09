@@ -30,7 +30,9 @@ class ClinicalQuestionGraph:
         for idx, node in enumerate(nodes):
             if node["id"] not in answered_ids:
                 # Select translated text based on language preference
-                if language == "ta" and node.get("question_text_ta"):
+                if language == "kn" and node.get("question_text_kn"):
+                    q_text = node["question_text_kn"]
+                elif language == "ta" and node.get("question_text_ta"):
                     q_text = node["question_text_ta"]
                 elif language == "hi" and node.get("question_text_hi"):
                     q_text = node["question_text_hi"]
@@ -42,6 +44,7 @@ class ClinicalQuestionGraph:
                     section=node["section"],
                     question_text=q_text,
                     question_text_en=node["question_text_en"],
+                    question_text_kn=node.get("question_text_kn"),
                     question_text_ta=node.get("question_text_ta"),
                     question_text_hi=node.get("question_text_hi"),
                     input_type=node["input_type"],

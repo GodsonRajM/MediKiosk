@@ -4,49 +4,82 @@
 
 :root {
   --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --bg-primary: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-secondary: #f1f5f9;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  --brand-blue: #2563eb;
+  --brand-blue-hover: #1d4ed8;
+  --brand-blue-light: #eff6ff;
+}
+
+.dark {
+  --bg-primary: #0b1120;
+  --bg-surface: #131d31;
+  --bg-secondary: #1e293b;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --border-color: #2a374d;
+  --brand-blue: #3b82f6;
+  --brand-blue-hover: #60a5fa;
+  --brand-blue-light: #1e293b;
 }
 
 body {
   font-family: var(--font-inter);
-  background-color: #0b0f19;
-  color: #f1f5f9;
+  background-color: var(--bg-primary);
+  color: var(--text-main);
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Kiosk Touch Target Defaults */
+/* Kiosk Touch Target & Accessibility */
 button, input, select, textarea {
-  min-height: 48px;
+  min-height: 44px;
   touch-action: manipulation;
 }
 
-/* Glassmorphic Panel Utilities */
+/* Professional Healthcare Panel Utilities */
+.health-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+}
+
+.health-card-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.health-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.1), 0 4px 6px -4px rgba(37, 99, 235, 0.05);
+  border-color: #93c5fd;
+}
+
 .glass-panel {
-  background: rgba(17, 24, 39, 0.75);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
 }
 
-.glass-card {
-  background: rgba(30, 41, 59, 0.6);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.glass-panel-gold {
-  background: rgba(45, 33, 14, 0.7);
+.dark .glass-panel {
+  background: rgba(19, 29, 49, 0.85);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(217, 164, 49, 0.25);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color);
 }
 
-/* Pulse animation for voice listening state */
+/* Audio Wave Pulse Animation */
 @keyframes voice-pulse {
-  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.7); }
-  70% { transform: scale(1.08); box-shadow: 0 0 0 16px rgba(14, 165, 233, 0); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); }
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.6); }
+  70% { transform: scale(1.06); box-shadow: 0 0 0 14px rgba(37, 99, 235, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
 }
 
 .animate-voice-pulse {
-  animation: voice-pulse 2s infinite;
+  animation: voice-pulse 1.8s infinite;
 }

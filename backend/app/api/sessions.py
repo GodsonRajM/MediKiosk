@@ -9,15 +9,17 @@ from app.core.security import get_current_user
 router = APIRouter(prefix="/sessions", tags=["Clinical Sessions"])
 
 @router.post("", response_model=SessionResponse)
+@router.post("/start", response_model=SessionResponse)
 async def create_session(req: SessionCreate):
     session_id = str(uuid.uuid4())
+    lang = req.preferred_language or req.selected_language
     session_data = {
         "id": session_id,
         "patient_id": req.patient_id,
         "session_status": "CONSENT_PENDING",
         "mode": req.mode.upper(),
         "current_step": "CONSENT",
-        "selected_language": req.selected_language,
+        "selected_language": lang,
         "chief_complaint_text": None,
         "started_at": datetime.utcnow().isoformat(),
         "completed_at": None

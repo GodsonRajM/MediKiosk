@@ -111,16 +111,35 @@ CREATE TABLE users (
 CREATE TABLE patients (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    medikiosk_id VARCHAR(32) UNIQUE NOT NULL, -- Format: MK-000001
+    medikiosk_id VARCHAR(32) UNIQUE NOT NULL, -- Format: MK-P10001
     full_name VARCHAR(255) NOT NULL,
     date_of_birth DATE,
     age INT,
     gender VARCHAR(32) NOT NULL,
     phone VARCHAR(32) NOT NULL,
     email VARCHAR(255),
+    address TEXT,
+    blood_group VARCHAR(16),
     emergency_contact_name VARCHAR(255),
     emergency_contact_phone VARCHAR(32),
     preferred_language VARCHAR(32) NOT NULL DEFAULT 'en',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE doctors (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    doctor_id VARCHAR(32) UNIQUE NOT NULL, -- Format: MK-D10001
+    full_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    phone VARCHAR(32) NOT NULL,
+    specialization VARCHAR(128) DEFAULT 'General Medicine',
+    age INT,
+    address TEXT,
+    blood_group VARCHAR(16),
+    emergency_contact_phone VARCHAR(32),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -135,6 +154,14 @@ CREATE TABLE patient_identifiers (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE doctor_patient_relationships (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+    doctor_id UUID NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+    status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE patient_access (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
@@ -143,6 +170,18 @@ CREATE TABLE patient_access (
     granted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE medical_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+    record_type VARCHAR(64) NOT NULL, -- 'SCAN', 'XRAY', 'PRESCRIPTION', 'LAB_REPORT', 'ALLERGY', 'SURGERY'
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    file_path TEXT,
+    date_recorded DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ------------------------------------------------------------------------------

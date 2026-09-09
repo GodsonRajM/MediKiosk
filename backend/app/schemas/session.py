@@ -14,6 +14,7 @@ class SessionCreate(BaseModel):
     patient_id: str
     mode: str = "STANDARD"  # "STANDARD" or "AYUSH"
     selected_language: str = "en"
+    preferred_language: Optional[str] = None
 
 class SessionResponse(BaseModel):
     id: str

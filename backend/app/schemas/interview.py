@@ -6,6 +6,7 @@ class QuestionResponse(BaseModel):
     section: str
     question_text: str
     question_text_en: str
+    question_text_kn: Optional[str] = None
     question_text_ta: Optional[str] = None
     question_text_hi: Optional[str] = None
     input_type: str  # text, choice, scale, voice
