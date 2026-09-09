@@ -42,7 +42,9 @@ jobs:
         working-directory: ./frontend
         env:
           NEXT_EXPORT: 'true'
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://medikiosk-api.onrender.com/api/v1' }}
+          NEXT_PUBLIC_SUPABASE_URL: 'https://sybadtgsjvtwmvrdulfk.supabase.co'
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_ZrHHVFfnGWZIJ1yXzrUgqw_CUKN7G5g'
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || '' }}
         run: npm run build
 
       - name: Sync Capacitor Android
@@ -63,3 +65,10 @@ jobs:
           name: medikiosk-debug-apk
           path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
+
+      - name: Deploy Web Portal to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./frontend/out

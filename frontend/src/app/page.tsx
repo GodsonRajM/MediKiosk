@@ -102,11 +102,7 @@ export default function LoginPage() {
     } catch (err: any) {
       console.error("Login error:", err);
       const msg = err.message || "";
-      if (msg.includes("fetch") || msg.includes("NetworkError") || msg.includes("Failed to fetch")) {
-        setError(`Unable to connect to backend (${activeApiUrl || getApiBase()}). Tap "Configure Server" below to connect to your laptop Wi-Fi.`);
-      } else {
-        setError(msg || "Invalid credentials. Please verify your ID and password.");
-      }
+      setError(msg || "Invalid credentials. Please verify your Email/ID and password.");
     } finally {
       setLoading(false);
     }
@@ -160,11 +156,7 @@ export default function LoginPage() {
     } catch (err: any) {
       console.error("Signup error:", err);
       const msg = err.message || "";
-      if (msg.includes("fetch") || msg.includes("NetworkError") || msg.includes("Failed to fetch")) {
-        setError(`Unable to connect to backend (${activeApiUrl || getApiBase()}). Tap "Configure Server" below to connect to your laptop Wi-Fi.`);
-      } else {
-        setError(msg || "Failed to create account. Please check your details.");
-      }
+      setError(msg || "Failed to create account. Please check your details.");
     } finally {
       setLoading(false);
     }
@@ -599,9 +591,9 @@ export default function LoginPage() {
 
             {/* Server Connection Status Bar */}
             <div className="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
-              <span className="flex items-center gap-1.5 font-mono truncate max-w-[200px]" title={activeApiUrl}>
+              <span className="flex items-center gap-1.5 font-mono truncate max-w-[220px]" title={activeApiUrl || "Authoritative Supabase Cloud (24/7 Autonomous)"}>
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-                <span className="truncate">{activeApiUrl ? activeApiUrl.replace(/\/api\/v1\/?$/, "") : "http://192.168.1.179:8000"}</span>
+                <span className="truncate">{activeApiUrl ? activeApiUrl.replace(/\/api\/v1\/?$/, "") : "Cloud Supabase (24/7)"}</span>
               </span>
               <button
                 type="button"

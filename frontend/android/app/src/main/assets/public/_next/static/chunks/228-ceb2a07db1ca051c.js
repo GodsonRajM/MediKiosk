@@ -1,4 +1,4 @@
-"use strict";(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[922],{3480:function(e,t,n){n.d(t,{Z:function(){return i}});var a=n(2265),y={xmlns:"http://www.w3.org/2000/svg",width:24,height:24,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"};/**
+"use strict";(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[228],{3480:function(e,t,n){n.d(t,{Z:function(){return i}});var a=n(2265),y={xmlns:"http://www.w3.org/2000/svg",width:24,height:24,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"};/**
  * @license lucide-react v0.359.0 - ISC
  *
  * This source code is licensed under the ISC license.
@@ -38,7 +38,12 @@
  *
  * This source code is licensed under the ISC license.
  * See the LICENSE file in the root directory of this source tree.
- */let a=(0,n(3480).Z)("Clock",[["circle",{cx:"12",cy:"12",r:"10",key:"1mglay"}],["polyline",{points:"12 6 12 12 16 14",key:"68esgv"}]])},6884:function(e,t,n){n.d(t,{Z:function(){return a}});/**
+ */let a=(0,n(3480).Z)("Clock",[["circle",{cx:"12",cy:"12",r:"10",key:"1mglay"}],["polyline",{points:"12 6 12 12 16 14",key:"68esgv"}]])},993:function(e,t,n){n.d(t,{Z:function(){return a}});/**
+ * @license lucide-react v0.359.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let a=(0,n(3480).Z)("Cloud",[["path",{d:"M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z",key:"p7xjir"}]])},6884:function(e,t,n){n.d(t,{Z:function(){return a}});/**
  * @license lucide-react v0.359.0 - ISC
  *
  * This source code is licensed under the ISC license.

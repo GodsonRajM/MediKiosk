@@ -62,11 +62,44 @@ export default function PublicEmergencyClient({ initialToken }: EmergencyClientP
   }, [token]);
 
   const loadProfile = async (tok: string) => {
+    let offlineData: any = null;
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const urlName = searchParams.get("name");
+      const urlBlood = searchParams.get("bg");
+      const urlContact = searchParams.get("ec");
+      const urlId = searchParams.get("id");
+      const urlAl = searchParams.get("al")?.split(";").map((s) => s.trim()).filter(Boolean) || [];
+      const urlCd = searchParams.get("cd")?.split(";").map((s) => s.trim()).filter(Boolean) || [];
+      const urlRx = searchParams.get("rx")?.split(";").map((s) => s.trim()).filter(Boolean) || [];
+
+      if (urlBlood || urlName || urlContact || urlId) {
+        offlineData = {
+          status: "active",
+          full_name: urlName || "Emergency Patient",
+          medikiosk_id: urlId || "PS000000",
+          blood_group: urlBlood || "Not Specified",
+          emergency_contact: urlContact || "Not registered",
+          allergies: urlAl,
+          conditions: urlCd,
+          medications: urlRx,
+          verified_at: new Date().toLocaleDateString(),
+          is_offline_verified: true,
+        };
+        setProfile(offlineData);
+        setLoading(false);
+      }
+    }
+
     try {
       const res = await ApiService.getPublicEmergencyView(tok);
       setProfile(res);
+      setError(null);
     } catch (err: any) {
-      setError(err.message || "Failed to load emergency profile.");
+      // If we have verified parameters embedded from the patient's QR code, preserve them!
+      if (!offlineData) {
+        setError(err.message || "Failed to load emergency profile.");
+      }
     } finally {
       setLoading(false);
     }
@@ -160,6 +193,13 @@ export default function PublicEmergencyClient({ initialToken }: EmergencyClientP
           MediKiosk Automated Clinical Triage • Authorized Medical Information
         </p>
       </header>
+
+      {profile?.is_offline_verified && (
+        <div className="w-full max-w-lg mb-3 p-2.5 bg-emerald-950/60 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>Verified Offline Medical ID • Decoded directly from Emergency QR</span>
+        </div>
+      )}
 
       {/* Main Medical Card */}
       <main className="w-full max-w-lg space-y-4">

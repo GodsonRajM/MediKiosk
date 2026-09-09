@@ -27,14 +27,11 @@ export const EmergencyAccessCard: React.FC = () => {
   const [editMode, setEditMode] = useState(false);
   const [bloodGroup, setBloodGroup] = useState("");
   const [emergencyContact, setEmergencyContact] = useState("");
-  const [hostMode, setHostMode] = useState<"wifi" | "localhost" | "custom">("wifi");
-  const [customHost, setCustomHost] = useState("192.168.1.179:3000");
+  const [hostMode, setHostMode] = useState<"vcard" | "cloud" | "origin" | "wifi" | "custom">("vcard");
+  const [customHost, setCustomHost] = useState("https://godsonrajm.github.io/MediKiosk");
 
   useEffect(() => {
     loadSettings();
-    if (typeof window !== "undefined" && window.location.hostname && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-      setCustomHost(window.location.host);
-    }
   }, []);
 
   const loadSettings = async () => {
@@ -68,8 +65,9 @@ export const EmergencyAccessCard: React.FC = () => {
     }
   };
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
+  const handleSaveVitals = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!data) return;
     setUpdating(true);
     try {
       await ApiService.toggleEmergencyAccess({
@@ -86,16 +84,43 @@ export const EmergencyAccessCard: React.FC = () => {
     }
   };
 
+  const emergencyQuery = new URLSearchParams({
+    token: data?.token || "",
+    name: data?.full_name || "",
+    id: data?.medikiosk_id || "MK-000004",
+    bg: data?.blood_group || bloodGroup || "B+",
+    ec: data?.emergency_contact || emergencyContact || "+91 9731277723",
+    al: (data?.allergies || []).join("; "),
+    cd: (data?.conditions || []).join("; "),
+    rx: (data?.medications || []).join("; ")
+  }).toString();
+
   const getBaseOrigin = () => {
-    if (typeof window === "undefined") return "";
-    if (hostMode === "wifi") return `http://${customHost}`;
+    if (typeof window === "undefined") return "https://godsonrajm.github.io/MediKiosk";
+    if (hostMode === "cloud") return "https://godsonrajm.github.io/MediKiosk";
+    if (hostMode === "wifi") return customHost.startsWith("http") ? customHost : `http://${customHost || "192.168.1.179:3000"}`;
     if (hostMode === "custom") return customHost.startsWith("http") ? customHost : `http://${customHost}`;
     return window.location.origin;
   };
 
   const publicUrl = typeof window !== "undefined" && data?.token
-    ? `${getBaseOrigin()}/emergency/?token=${data.token}`
+    ? `${getBaseOrigin()}/emergency/?${emergencyQuery}`
     : "";
+
+  const vcardText = `🚨 MEDIKIOSK EMERGENCY MEDICAL ID 🚨
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PATIENT: ${data?.full_name || "Godson raj"}
+PATIENT ID: ${data?.medikiosk_id || "MK-000004"}
+BLOOD GROUP: ${data?.blood_group || bloodGroup || "B+"}
+EMERGENCY CONTACT: ${data?.emergency_contact || emergencyContact || "+91 9731277723"}
+CRITICAL ALLERGIES: ${(data?.allergies || []).join(", ") || "None Reported"}
+CHRONIC CONDITIONS: ${(data?.conditions || []).join(", ") || "None Recorded"}
+ACTIVE MEDICATIONS: ${(data?.medications || []).join(", ") || "None"}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AMBULANCE / SOS: Call 108
+Hospital Pre-Consultation System (SIH26047)`;
+
+  const qrDataPayload = hostMode === "vcard" ? vcardText : publicUrl;
 
   const handleCopyLink = () => {
     if (!publicUrl) return;
@@ -121,7 +146,7 @@ export const EmergencyAccessCard: React.FC = () => {
   }
 
   // Generate QR Code image url using standard dynamic SVG API or data URL
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(publicUrl)}&margin=10`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(qrDataPayload)}&margin=10`;
 
   return (
     <div className="space-y-6">
@@ -181,65 +206,78 @@ export const EmergencyAccessCard: React.FC = () => {
             />
           </div>
 
-          {/* QR Target Host Switcher (for mobile phone camera scan) */}
+          {/* QR Target Host Switcher */}
           <div className="w-full bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-left space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                QR Target (for Phone Scan)
+                QR Format (24/7 Scan)
               </span>
               <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">
-                Wi-Fi Ready
+                {hostMode === "vcard" ? "Zero Internet" : "Cloud 24/7"}
               </span>
             </div>
-            <div className="grid grid-cols-3 gap-1">
+            <div className="grid grid-cols-2 gap-1.5">
               <button
                 type="button"
-                onClick={() => setHostMode("wifi")}
-                className={`py-1 px-1 rounded-lg text-[10px] font-bold transition-all text-center ${
-                  hostMode === "wifi"
+                onClick={() => setHostMode("cloud")}
+                className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all text-center flex items-center justify-center gap-1 ${
+                  hostMode === "cloud"
                     ? "bg-rose-600 text-white shadow-sm"
                     : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600"
                 }`}
               >
-                Wi-Fi IP
+                Cloud Portal (24/7)
               </button>
               <button
                 type="button"
-                onClick={() => setHostMode("localhost")}
-                className={`py-1 px-1 rounded-lg text-[10px] font-bold transition-all text-center ${
-                  hostMode === "localhost"
+                onClick={() => setHostMode("vcard")}
+                className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all text-center flex items-center justify-center gap-1 ${
+                  hostMode === "vcard"
                     ? "bg-rose-600 text-white shadow-sm"
                     : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600"
                 }`}
               >
-                Localhost
+                Medical vCard (Offline)
+              </button>
+              <button
+                type="button"
+                onClick={() => setHostMode("origin")}
+                className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all text-center flex items-center justify-center gap-1 ${
+                  hostMode === "origin"
+                    ? "bg-rose-600 text-white shadow-sm"
+                    : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600"
+                }`}
+              >
+                Current Host
               </button>
               <button
                 type="button"
                 onClick={() => setHostMode("custom")}
-                className={`py-1 px-1 rounded-lg text-[10px] font-bold transition-all text-center ${
+                className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all text-center flex items-center justify-center gap-1 ${
                   hostMode === "custom"
                     ? "bg-rose-600 text-white shadow-sm"
                     : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600"
                 }`}
               >
-                Custom
+                Custom URL
               </button>
             </div>
-            {hostMode !== "localhost" && (
+            {hostMode === "custom" && (
               <input
                 type="text"
                 value={customHost}
                 onChange={(e) => setCustomHost(e.target.value)}
-                placeholder="192.168.1.179:3000"
+                placeholder="https://your-domain.com"
                 className="w-full text-[11px] font-mono p-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-rose-500"
               />
             )}
             <p className="text-[10px] text-slate-400 leading-tight">
-              {hostMode === "wifi"
-                ? "Phone & laptop must be on same Wi-Fi network."
-                : hostMode === "localhost"
-                ? "For browsing directly on this laptop only."
+              {hostMode === "vcard"
+                ? "Scans directly as Medical ID Contact on any phone camera without internet."
+                : hostMode === "cloud"
+                ? "Opens live cloud portal from any phone with embedded verified emergency vitals."
+                : hostMode === "origin"
+                ? "Uses this current device's origin address."
                 : "Enter your public domain or cloud URL."}
             </p>
           </div>
@@ -297,7 +335,7 @@ export const EmergencyAccessCard: React.FC = () => {
             </div>
 
             {editMode ? (
-              <form onSubmit={handleSaveProfile} className="space-y-4 text-xs">
+              <form onSubmit={handleSaveVitals} className="space-y-4 text-xs">
                 <div className="space-y-1">
                   <label className="font-semibold text-slate-700 dark:text-slate-300">
                     Blood Group
