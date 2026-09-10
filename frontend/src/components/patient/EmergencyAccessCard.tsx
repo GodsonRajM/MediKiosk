@@ -27,8 +27,9 @@ export const EmergencyAccessCard: React.FC = () => {
   const [editMode, setEditMode] = useState(false);
   const [bloodGroup, setBloodGroup] = useState("");
   const [emergencyContact, setEmergencyContact] = useState("");
-  const [hostMode, setHostMode] = useState<"production" | "origin" | "custom">("production");
+  const [hostMode, setHostMode] = useState<"production" | "wifi" | "custom">("production");
   const productionHost = process.env.NEXT_PUBLIC_PRODUCTION_URL || "https://medikiosk-50ce2.web.app";
+  const wifiHost = "http://10.39.3.29:3000";
   const [customHost, setCustomHost] = useState(productionHost);
 
   useEffect(() => {
@@ -89,16 +90,11 @@ export const EmergencyAccessCard: React.FC = () => {
   const secureToken = data?.token || "";
 
   const getTargetDomain = () => {
+    if (hostMode === "wifi") {
+      return wifiHost;
+    }
     if (hostMode === "custom" && customHost) {
       return customHost.trim().replace(/\/$/, "");
-    }
-    if (hostMode === "origin" && typeof window !== "undefined") {
-      // In native Capacitor APK, origin is https://localhost which external phones cannot reach.
-      // Fallback to production host if on localhost.
-      if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-        return productionHost;
-      }
-      return window.location.origin;
     }
     return productionHost;
   };
@@ -206,28 +202,40 @@ export const EmergencyAccessCard: React.FC = () => {
                 HTTPS Verified
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5">
               <button
                 type="button"
                 onClick={() => setHostMode("production")}
-                className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all text-center flex items-center justify-center gap-1 ${
+                className={`py-1.5 px-1.5 rounded-lg text-[10px] font-bold transition-all text-center flex items-center justify-center gap-1 ${
                   hostMode === "production"
                     ? "bg-rose-600 text-white shadow-sm"
                     : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600"
                 }`}
               >
-                Production Cloud
+                Cloud Live
+              </button>
+              <button
+                type="button"
+                onClick={() => setHostMode("wifi")}
+                className={`py-1.5 px-1.5 rounded-lg text-[10px] font-bold transition-all text-center flex items-center justify-center gap-1 ${
+                  hostMode === "wifi"
+                    ? "bg-emerald-600 text-white shadow-sm"
+                    : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600"
+                }`}
+                title="Use Laptop Wi-Fi IP for phone camera scanning"
+              >
+                Wi-Fi Direct
               </button>
               <button
                 type="button"
                 onClick={() => setHostMode("custom")}
-                className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all text-center flex items-center justify-center gap-1 ${
+                className={`py-1.5 px-1.5 rounded-lg text-[10px] font-bold transition-all text-center flex items-center justify-center gap-1 ${
                   hostMode === "custom"
                     ? "bg-rose-600 text-white shadow-sm"
                     : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600"
                 }`}
               >
-                Custom Domain
+                Custom
               </button>
             </div>
             {hostMode === "custom" && (
