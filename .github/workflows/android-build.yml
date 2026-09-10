@@ -13,6 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+      FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
 
     steps:
       - name: Checkout Code
@@ -70,22 +74,22 @@ jobs:
           retention-days: 14
 
       - name: Distribute APK via Firebase App Distribution
-        if: github.ref == 'refs/heads/main' && secrets.FIREBASE_SERVICE_ACCOUNT != ''
+        if: github.ref == 'refs/heads/main' && env.FIREBASE_SERVICE_ACCOUNT != ''
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
-          appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
-          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          appId: ${{ env.FIREBASE_ANDROID_APP_ID }}
+          serviceCredentialsFileContent: ${{ env.FIREBASE_SERVICE_ACCOUNT }}
           groups: testers
           file: frontend/android/app/build/outputs/apk/debug/app-debug.apk
           releaseNotes: "MediKiosk Build: Gemini Live AI Voice Assistant, 24/7 Secure Emergency QR Portal, and Session Token Fix."
 
       - name: Deploy Emergency Portal to Firebase Hosting
-        if: github.ref == 'refs/heads/main' && secrets.FIREBASE_SERVICE_ACCOUNT != ''
+        if: github.ref == 'refs/heads/main' && env.FIREBASE_SERVICE_ACCOUNT != ''
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: ${{ secrets.FIREBASE_PROJECT_ID || 'medikiosk-50ce2' }}
+          firebaseServiceAccount: ${{ env.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: ${{ env.FIREBASE_PROJECT_ID || 'medikiosk-50ce2' }}
           channelId: live
 
       - name: Deploy Web Portal to GitHub Pages (Fallback)
