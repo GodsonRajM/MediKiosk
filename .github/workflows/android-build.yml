@@ -75,16 +75,17 @@ jobs:
 
       - name: Distribute APK via Firebase App Distribution
         if: github.ref == 'refs/heads/main' && env.FIREBASE_SERVICE_ACCOUNT != ''
+        continue-on-error: true
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ env.FIREBASE_ANDROID_APP_ID }}
           serviceCredentialsFileContent: ${{ env.FIREBASE_SERVICE_ACCOUNT }}
-          groups: testers
           file: frontend/android/app/build/outputs/apk/debug/app-debug.apk
           releaseNotes: "MediKiosk Build: Gemini Live AI Voice Assistant, 24/7 Secure Emergency QR Portal, and Session Token Fix."
 
       - name: Deploy Emergency Portal to Firebase Hosting
         if: github.ref == 'refs/heads/main' && env.FIREBASE_SERVICE_ACCOUNT != ''
+        continue-on-error: true
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
@@ -94,7 +95,7 @@ jobs:
 
       - name: Deploy Web Portal to GitHub Pages (Fallback)
         uses: peaceiris/actions-gh-pages@v4
-        if: github.ref == 'refs/heads/main'
+        if: always() && github.ref == 'refs/heads/main'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./frontend/out
