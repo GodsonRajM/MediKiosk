@@ -27,8 +27,9 @@ export const EmergencyAccessCard: React.FC = () => {
   const [editMode, setEditMode] = useState(false);
   const [bloodGroup, setBloodGroup] = useState("");
   const [emergencyContact, setEmergencyContact] = useState("");
-  const [hostMode, setHostMode] = useState<"vcard" | "cloud" | "origin" | "wifi" | "custom">("vcard");
-  const [customHost, setCustomHost] = useState("https://godsonrajm.github.io/MediKiosk");
+  const [hostMode, setHostMode] = useState<"production" | "origin" | "custom">("production");
+  const productionHost = process.env.NEXT_PUBLIC_PRODUCTION_URL || "https://medikiosk-50ce2.web.app";
+  const [customHost, setCustomHost] = useState(productionHost);
 
   useEffect(() => {
     loadSettings();
@@ -84,43 +85,32 @@ export const EmergencyAccessCard: React.FC = () => {
     }
   };
 
-  const emergencyQuery = new URLSearchParams({
-    token: data?.token || "",
-    name: data?.full_name || "",
-    id: data?.medikiosk_id || "MK-000004",
-    bg: data?.blood_group || bloodGroup || "B+",
-    ec: data?.emergency_contact || emergencyContact || "+91 9731277723",
-    al: (data?.allergies || []).join("; "),
-    cd: (data?.conditions || []).join("; "),
-    rx: (data?.medications || []).join("; ")
-  }).toString();
+  // Secure token: HMAC or cryptographic token only, zero passwords or private keys
+  const secureToken = data?.token || "";
 
-  const getBaseOrigin = () => {
-    if (typeof window === "undefined") return "https://godsonrajm.github.io/MediKiosk";
-    if (hostMode === "cloud") return "https://godsonrajm.github.io/MediKiosk";
-    if (hostMode === "wifi") return customHost.startsWith("http") ? customHost : `http://${customHost || "192.168.1.179:3000"}`;
-    if (hostMode === "custom") return customHost.startsWith("http") ? customHost : `http://${customHost}`;
-    return window.location.origin;
+  const getTargetDomain = () => {
+    if (hostMode === "custom" && customHost) {
+      return customHost.trim().replace(/\/$/, "");
+    }
+    if (hostMode === "origin" && typeof window !== "undefined") {
+      // In native Capacitor APK, origin is https://localhost which external phones cannot reach.
+      // Fallback to production host if on localhost.
+      if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+        return productionHost;
+      }
+      return window.location.origin;
+    }
+    return productionHost;
   };
 
-  const publicUrl = typeof window !== "undefined" && data?.token
-    ? `${getBaseOrigin()}/emergency/?${emergencyQuery}`
+  // Clean, standardized HTTPS Emergency URL readable by any smartphone camera:
+  // e.g. https://medikiosk-app.web.app/emergency/?token=<token>
+  const publicUrl = secureToken
+    ? `${getTargetDomain()}/emergency/?token=${encodeURIComponent(secureToken)}`
     : "";
 
-  const vcardText = `🚨 MEDIKIOSK EMERGENCY MEDICAL ID 🚨
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PATIENT: ${data?.full_name || "Godson raj"}
-PATIENT ID: ${data?.medikiosk_id || "MK-000004"}
-BLOOD GROUP: ${data?.blood_group || bloodGroup || "B+"}
-EMERGENCY CONTACT: ${data?.emergency_contact || emergencyContact || "+91 9731277723"}
-CRITICAL ALLERGIES: ${(data?.allergies || []).join(", ") || "None Reported"}
-CHRONIC CONDITIONS: ${(data?.conditions || []).join(", ") || "None Recorded"}
-ACTIVE MEDICATIONS: ${(data?.medications || []).join(", ") || "None"}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-AMBULANCE / SOS: Call 108
-Hospital Pre-Consultation System (SIH26047)`;
-
-  const qrDataPayload = hostMode === "vcard" ? vcardText : publicUrl;
+  // The QR payload is STRICTLY the secure HTTPS URL
+  const qrDataPayload = publicUrl;
 
   const handleCopyLink = () => {
     if (!publicUrl) return;
@@ -210,45 +200,23 @@ Hospital Pre-Consultation System (SIH26047)`;
           <div className="w-full bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-left space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                QR Format (24/7 Scan)
+                QR Target Domain
               </span>
               <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">
-                {hostMode === "vcard" ? "Zero Internet" : "Cloud 24/7"}
+                HTTPS Verified
               </span>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               <button
                 type="button"
-                onClick={() => setHostMode("cloud")}
+                onClick={() => setHostMode("production")}
                 className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all text-center flex items-center justify-center gap-1 ${
-                  hostMode === "cloud"
+                  hostMode === "production"
                     ? "bg-rose-600 text-white shadow-sm"
                     : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600"
                 }`}
               >
-                Cloud Portal (24/7)
-              </button>
-              <button
-                type="button"
-                onClick={() => setHostMode("vcard")}
-                className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all text-center flex items-center justify-center gap-1 ${
-                  hostMode === "vcard"
-                    ? "bg-rose-600 text-white shadow-sm"
-                    : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600"
-                }`}
-              >
-                Medical vCard (Offline)
-              </button>
-              <button
-                type="button"
-                onClick={() => setHostMode("origin")}
-                className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all text-center flex items-center justify-center gap-1 ${
-                  hostMode === "origin"
-                    ? "bg-rose-600 text-white shadow-sm"
-                    : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600"
-                }`}
-              >
-                Current Host
+                Production Cloud
               </button>
               <button
                 type="button"
@@ -259,7 +227,7 @@ Hospital Pre-Consultation System (SIH26047)`;
                     : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600"
                 }`}
               >
-                Custom URL
+                Custom Domain
               </button>
             </div>
             {hostMode === "custom" && (
@@ -267,19 +235,20 @@ Hospital Pre-Consultation System (SIH26047)`;
                 type="text"
                 value={customHost}
                 onChange={(e) => setCustomHost(e.target.value)}
-                placeholder="https://your-domain.com"
+                placeholder="https://your-domain.web.app"
                 className="w-full text-[11px] font-mono p-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-rose-500"
               />
             )}
-            <p className="text-[10px] text-slate-400 leading-tight">
-              {hostMode === "vcard"
-                ? "Scans directly as Medical ID Contact on any phone camera without internet."
-                : hostMode === "cloud"
-                ? "Opens live cloud portal from any phone with embedded verified emergency vitals."
-                : hostMode === "origin"
-                ? "Uses this current device's origin address."
-                : "Enter your public domain or cloud URL."}
-            </p>
+            
+            {/* Live QR Payload Debug Inspector (Requirement: inspect exact QR payload) */}
+            <div className="mt-2 p-2 bg-slate-100 dark:bg-slate-900/90 rounded-lg border border-slate-200 dark:border-slate-800 text-[10px]">
+              <span className="font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                Active QR Payload (Debug Inspector)
+              </span>
+              <p className="font-mono text-[9px] text-rose-600 dark:text-rose-400 break-all select-all">
+                {qrDataPayload}
+              </p>
+            </div>
           </div>
 
           <p className="text-[11px] text-slate-500 max-w-xs">

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AppProvider } from "@/lib/AppContext";
+import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 
 export const metadata: Metadata = {
   title: "MediKiosk — Pre-Consultation AI Case Taking",
@@ -15,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-medgrey-50 dark:bg-medgrey-900 text-medgrey-900 dark:text-medgrey-50 selection:bg-medblue-500 selection:text-white transition-colors duration-200">
-        <AppProvider>{children}</AppProvider>
+        <ErrorBoundary>
+          <AppProvider>{children}</AppProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

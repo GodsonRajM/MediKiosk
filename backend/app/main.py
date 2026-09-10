@@ -12,6 +12,7 @@ from app.api.documents import router as documents_router
 from app.api.summaries import router as summaries_router
 from app.api.emergency import router as emergency_router
 from app.api.admin import router as admin_router
+from app.api.ai_live import router as ai_live_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -47,6 +48,7 @@ app.include_router(documents_router, prefix=api_v1_prefix)
 app.include_router(summaries_router, prefix=api_v1_prefix)
 app.include_router(emergency_router, prefix=api_v1_prefix)
 app.include_router(admin_router, prefix=api_v1_prefix)
+app.include_router(ai_live_router, prefix=api_v1_prefix)
 
 @app.get("/")
 def root():

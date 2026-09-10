@@ -35,8 +35,29 @@ def generate_emergency_token(patient_id: str) -> str:
     return hmac.new(secret, msg, hashlib.sha256).hexdigest()[:32]
 
 def resolve_patient_from_token(token: str) -> Optional[Dict[str, Any]]:
-    """Resolves patient profile corresponding to the given HMAC emergency token."""
-    # Find patient by scanning profiles
+    """Resolves patient profile corresponding to the given emergency token."""
+    # 1. Look up in emergency_access_tokens table
+    try:
+        tok_row = db.select_one("emergency_access_tokens", {"token": token, "is_active": True})
+        if tok_row and tok_row.get("patient_id"):
+            patient = db.select_one("profiles", {"id": tok_row["patient_id"]})
+            if patient:
+                return patient
+    except Exception:
+        pass
+
+    # 2. Check if token matches raw UUID or slice
+    clean_token = token.replace("-", "").strip()
+    try:
+        profiles = db.select("profiles", {"role": "patient"})
+        for p in profiles:
+            p_id = str(p.get("id", "")).replace("-", "")
+            if p_id.startswith(clean_token) or clean_token.startswith(p_id[:32]):
+                return p
+    except Exception:
+        pass
+
+    # 3. Fallback to scanning profiles using HMAC
     patients = db.select("profiles", {"role": "patient"})
     for p in patients:
         expected = generate_emergency_token(p["id"])
@@ -57,6 +78,19 @@ def get_emergency_settings(current_user: dict = Depends(get_current_user)):
 
     pid_row = db.select_one("patient_identifiers", {"profile_id": patient_id})
     token = generate_emergency_token(patient_id)
+
+    # Persist in emergency_access_tokens table for fast cross-phone lookup
+    try:
+        existing_tok = db.select_one("emergency_access_tokens", {"patient_id": patient_id})
+        if not existing_tok:
+            db.insert("emergency_access_tokens", {
+                "id": str(uuid.uuid4()),
+                "patient_id": patient_id,
+                "token": token,
+                "is_active": True
+            })
+    except Exception:
+        pass
 
     # Check toggle status from audit_logs or default to true
     toggle_logs = db.select("audit_logs", {

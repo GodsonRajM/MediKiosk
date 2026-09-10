@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useApp } from "@/lib/AppContext";
 import { ApiService } from "@/lib/api";
 import { RedFlagBanner } from "@/components/common/RedFlagBanner";
+import { GeminiLiveVoiceClient, VoiceState } from "@/lib/geminiLiveClient";
 import { 
   Sparkles, 
   Mic, 
@@ -12,7 +13,10 @@ import {
   ArrowRight, 
   MessageSquare,
   FileCheck2,
-  Stethoscope
+  Volume2,
+  Loader2,
+  RefreshCw,
+  AlertCircle
 } from "lucide-react";
 
 interface ClinicalIntakeGraphProps {
@@ -33,16 +37,36 @@ export const ClinicalIntakeGraph: React.FC<ClinicalIntakeGraphProps> = ({ onInta
   const [redFlags, setRedFlags] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   
-  // Voice input state
-  const [isListening, setIsListening] = useState<boolean>(false);
-  const [speechSupported, setSpeechSupported] = useState<boolean>(false);
+  // Real Gemini Live Voice Assistant state
+  const [voiceState, setVoiceState] = useState<VoiceState>("idle");
+  const [voiceMessage, setVoiceMessage] = useState<string>("");
+  const [isSpeakingQuestion, setIsSpeakingQuestion] = useState<boolean>(false);
+  const voiceClientRef = useRef<GeminiLiveVoiceClient | null>(null);
 
   useEffect(() => {
-    // Check speech recognition support
-    if (typeof window !== "undefined" && ("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
-      setSpeechSupported(true);
-    }
+    // Initialize Voice Client with real callbacks
+    voiceClientRef.current = new GeminiLiveVoiceClient({
+      onStateChange: (state, message) => {
+        setVoiceState(state);
+        if (message) setVoiceMessage(message);
+      },
+      onTranscription: (transcript) => {
+        setTextAnswer(transcript);
+      },
+      onAnswerExtracted: (answer) => {
+        setTextAnswer(answer);
+        setSelectedOption(answer);
+      },
+      onError: (err) => {
+        setError(err);
+      },
+    });
+
     initializeIntake();
+
+    return () => {
+      voiceClientRef.current?.stop();
+    };
   }, [language]);
 
   const initializeIntake = async () => {
@@ -61,46 +85,47 @@ export const ClinicalIntakeGraph: React.FC<ClinicalIntakeGraphProps> = ({ onInta
     }
   };
 
-  const handleToggleVoice = () => {
-    if (!speechSupported) {
-      alert("Speech recognition is not supported in this browser.");
-      return;
-    }
+  const handleReadQuestion = async () => {
+    if (!currentQuestion || isSpeakingQuestion) return;
+    const qText = currentQuestion?.text?.[language] || currentQuestion?.text?.["en"] || "";
+    if (!qText) return;
 
-    if (isListening) {
-      setIsListening(false);
-      return;
-    }
-
+    setIsSpeakingQuestion(true);
     try {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      
-      // Set recognition language
-      const langMap: Record<string, string> = {
-        en: "en-US",
-        kn: "kn-IN",
-        ta: "ta-IN",
-        hi: "hi-IN"
-      };
-      recognition.lang = langMap[language] || "en-US";
-
-      recognition.onstart = () => setIsListening(true);
-      recognition.onend = () => setIsListening(false);
-      recognition.onerror = () => setIsListening(false);
-
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setTextAnswer(transcript);
-        setSelectedOption(transcript);
-      };
-
-      recognition.start();
-    } catch {
-      setIsListening(false);
+      await voiceClientRef.current?.readQuestionAloud(qText, language);
+    } finally {
+      setIsSpeakingQuestion(false);
     }
+  };
+
+  const handleToggleVoice = async () => {
+    setError(null);
+    if (!voiceClientRef.current) return;
+
+    if (voiceState === "listening") {
+      // User tapped Stop -> Process recorded audio with Gemini AI
+      try {
+        const result = await voiceClientRef.current.stopAndSubmit();
+        if (result.answer) {
+          // Submit structured answer to adaptive graph and Supabase
+          await handleSubmit(result.answer);
+        }
+      } catch {
+        // Handled in callback
+      }
+      return;
+    }
+
+    if (voiceState === "connecting" || voiceState === "processing") {
+      voiceClientRef.current.stop();
+      return;
+    }
+
+    // Start Voice Intake
+    const qText = currentQuestion?.text?.[language] || currentQuestion?.text?.["en"] || "Clinical Question";
+    const qField = currentQuestion?.clinical_field || "chief_complaint";
+
+    await voiceClientRef.current.startVoiceIntake(qText, qField, language);
   };
 
   const handleSubmit = async (answerVal?: string) => {
@@ -130,6 +155,8 @@ export const ClinicalIntakeGraph: React.FC<ClinicalIntakeGraphProps> = ({ onInta
         setCurrentQuestion(res.question);
         setSelectedOption("");
         setTextAnswer("");
+        setVoiceState("idle");
+        setVoiceMessage("");
       }
     } catch (err: any) {
       setError(err.message || "Error submitting answer.");
@@ -215,17 +242,37 @@ export const ClinicalIntakeGraph: React.FC<ClinicalIntakeGraphProps> = ({ onInta
             {currentQuestion?.section || "Clinical Intake"}
           </span>
         </div>
-        <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-medblue-50 dark:bg-medblue-950/60 text-medblue-600 dark:text-medblue-400 border border-medblue-200 dark:border-medblue-800">
-          AI Guided
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleReadQuestion}
+            disabled={isSpeakingQuestion}
+            title="Listen to question"
+            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs flex items-center gap-1"
+          >
+            <Volume2 className={`w-3.5 h-3.5 ${isSpeakingQuestion ? "text-medblue-600 animate-pulse" : ""}`} />
+            <span className="hidden sm:inline text-[11px]">Read Aloud</span>
+          </button>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-medblue-50 dark:bg-medblue-950/60 text-medblue-600 dark:text-medblue-400 border border-medblue-200 dark:border-medblue-800">
+            Gemini Live AI
+          </span>
+        </div>
       </div>
 
-      {/* Red Flags Banner (if triggered mid-interview) */}
+      {/* Red Flags Banner */}
       <RedFlagBanner alerts={redFlags} />
 
       {error && (
-        <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 text-xs font-medium border border-rose-200 dark:border-rose-900">
-          {error}
+        <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 text-xs font-medium border border-rose-200 dark:border-rose-900 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={() => setError(null)}
+            className="text-[11px] underline font-semibold ml-2 shrink-0"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
@@ -235,9 +282,44 @@ export const ClinicalIntakeGraph: React.FC<ClinicalIntakeGraphProps> = ({ onInta
           {questionText}
         </h2>
         <p className="text-xs text-medgrey-500">
-          Touch an option below or type your response.
+          Touch an option below, speak via Voice Assistant, or type your response.
         </p>
       </div>
+
+      {/* Gemini Voice Assistant Live State Banner */}
+      {voiceState !== "idle" && (
+        <div className={`p-4 rounded-2xl border transition-all text-xs flex items-center justify-between gap-3 ${
+          voiceState === "listening"
+            ? "bg-rose-50 dark:bg-rose-950/50 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 animate-pulse"
+            : voiceState === "connecting"
+            ? "bg-amber-50 dark:bg-amber-950/50 border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300"
+            : voiceState === "processing"
+            ? "bg-blue-50 dark:bg-blue-950/50 border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300"
+            : voiceState === "answered"
+            ? "bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300"
+            : "bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+        }`}>
+          <div className="flex items-center gap-2.5">
+            {voiceState === "listening" ? (
+              <div className="w-3 h-3 rounded-full bg-rose-600 animate-ping" />
+            ) : voiceState === "processing" || voiceState === "connecting" ? (
+              <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            )}
+            <span className="font-semibold">{voiceMessage || `State: ${voiceState}`}</span>
+          </div>
+
+          {voiceState === "listening" && (
+            <button
+              onClick={handleToggleVoice}
+              className="px-3 py-1 bg-rose-600 text-white rounded-lg text-xs font-bold shadow-sm hover:bg-rose-700"
+            >
+              Done Speaking
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Dynamic Options or Text Input */}
       {currentQuestion?.options && currentQuestion.options.length > 0 ? (
@@ -270,7 +352,7 @@ export const ClinicalIntakeGraph: React.FC<ClinicalIntakeGraphProps> = ({ onInta
           <textarea
             value={textAnswer}
             onChange={(e) => setTextAnswer(e.target.value)}
-            placeholder="Type your medical answer here..."
+            placeholder="Type your medical answer here or tap Speak..."
             rows={3}
             className="health-input"
           />
@@ -281,14 +363,27 @@ export const ClinicalIntakeGraph: React.FC<ClinicalIntakeGraphProps> = ({ onInta
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-medgrey-100 dark:border-medgrey-800">
         <button
           onClick={handleToggleVoice}
-          className={`w-full sm:w-auto px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-colors ${
-            isListening
-              ? "bg-rose-500 text-white border-rose-600 animate-pulse"
+          disabled={voiceState === "processing"}
+          className={`w-full sm:w-auto px-5 py-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+            voiceState === "listening"
+              ? "bg-rose-600 text-white border-rose-700 shadow-md animate-pulse"
+              : voiceState === "connecting"
+              ? "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 border-amber-300"
               : "bg-white dark:bg-medgrey-800 border-medgrey-300 dark:border-medgrey-700 text-medgrey-700 dark:text-medgrey-200 hover:bg-medgrey-50"
           }`}
         >
-          {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4 text-medblue-600" />}
-          {isListening ? t.listening : t.voiceInput}
+          {voiceState === "listening" ? (
+            <MicOff className="w-4 h-4" />
+          ) : (
+            <Mic className="w-4 h-4 text-medblue-600" />
+          )}
+          {voiceState === "listening"
+            ? "Stop & Submit Voice"
+            : voiceState === "connecting"
+            ? "Connecting..."
+            : voiceState === "processing"
+            ? "Processing Voice..."
+            : "Gemini Voice Assistant"}
         </button>
 
         <button

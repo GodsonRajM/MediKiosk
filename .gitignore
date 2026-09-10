@@ -4,6 +4,11 @@
 .env.*.local
 *.DS_Store
 Thumbs.db
+google-services.json
+*.keystore
+*.jks
+service-account*.json
+serviceAccount*.json
 
 # Python
 __pycache__/

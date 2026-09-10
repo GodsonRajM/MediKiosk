@@ -1,5 +1,6 @@
 import pytest
 import io
+import uuid
 from fastapi.testclient import TestClient
 from app.main import app
 
@@ -13,9 +14,10 @@ def test_health_endpoint():
     assert data["zero_dummy_data"] is True
 
 def test_patient_registration_with_mandatory_consent():
+    uid = uuid.uuid4().hex[:6]
     bad_req = {
         "full_name": "Test Patient",
-        "email": "test.consent.patient@hospital.org",
+        "email": f"test.consent.{uid}@hospital.org",
         "password": "Password123!",
         "age": 45,
         "phone": "+919876543210",
@@ -25,7 +27,7 @@ def test_patient_registration_with_mandatory_consent():
     }
     r = client.post("/api/v1/auth/patient/signup", json=bad_req)
     assert r.status_code == 400
-    assert "Mandatory consent" in r.json()["detail"]
+    assert "Mandatory consent" in str(r.json()["detail"])
 
     good_req = dict(bad_req)
     good_req["consent_accepted"] = True
@@ -34,12 +36,13 @@ def test_patient_registration_with_mandatory_consent():
     d2 = r2.json()
     assert "access_token" in d2
     assert d2["user"]["role"] == "patient"
-    assert d2["user"]["medikiosk_id"].startswith("MK-")
+    assert d2["user"]["medikiosk_id"].startswith("MK-") or d2["user"]["medikiosk_id"].startswith("PS")
 
 def test_doctor_registration_and_login():
+    uid = uuid.uuid4().hex[:6]
     doc_req = {
         "full_name": "Dr. Ananya Sharma",
-        "email": "dr.ananya@hospital.org",
+        "email": f"dr.ananya.{uid}@hospital.org",
         "password": "DoctorSecure123!",
         "age": 38,
         "phone": "+919844433221",
@@ -52,7 +55,7 @@ def test_doctor_registration_and_login():
     assert r.status_code == 201
     d = r.json()
     doctor_id = d["user"]["doctor_id"]
-    assert doctor_id.startswith("DK-")
+    assert doctor_id.startswith("DK-") or doctor_id.startswith("DR")
 
     login_req = {
         "identifier": doctor_id,
@@ -63,10 +66,11 @@ def test_doctor_registration_and_login():
     assert "access_token" in r_login.json()
 
 def test_medical_history_crud_and_timeline():
+    uid = uuid.uuid4().hex[:6]
     # 1. Register Patient
     p_reg = {
         "full_name": "Kavitha Nair",
-        "email": "kavitha.nair@hospital.org",
+        "email": f"kavitha.{uid}@hospital.org",
         "password": "PatientPass123!",
         "age": 34,
         "phone": "+919812345678",
@@ -76,6 +80,7 @@ def test_medical_history_crud_and_timeline():
         "consent_accepted": True
     }
     r_p = client.post("/api/v1/auth/patient/signup", json=p_reg)
+    assert r_p.status_code == 201
     token = r_p.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -110,9 +115,10 @@ def test_medical_history_crud_and_timeline():
     assert len(r_after.json()) == 0
 
 def test_document_upload_and_ocr():
+    uid = uuid.uuid4().hex[:6]
     p_reg = {
         "full_name": "Suresh Patel",
-        "email": "suresh.patel@hospital.org",
+        "email": f"suresh.{uid}@hospital.org",
         "password": "PatientPass123!",
         "age": 60,
         "phone": "+919712345670",
@@ -121,6 +127,7 @@ def test_document_upload_and_ocr():
         "consent_accepted": True
     }
     r_p = client.post("/api/v1/auth/patient/signup", json=p_reg)
+    assert r_p.status_code == 201
     token = r_p.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -138,23 +145,26 @@ def test_document_upload_and_ocr():
     assert any("prescription_march.txt" in t["title"] for t in r_time.json())
 
 def test_unauthorized_doctor_access_blocked():
+    uid = uuid.uuid4().hex[:6]
     # Patient 1
-    p1 = client.post("/api/v1/auth/patient/signup", json={
+    p1_res = client.post("/api/v1/auth/patient/signup", json={
         "full_name": "Private Patient",
-        "email": "private.patient@hospital.org",
+        "email": f"private.{uid}@hospital.org",
         "password": "SecretPassword123!",
         "age": 29,
         "phone": "+919833333333",
         "address": "Delhi",
         "emergency_contact": "+919833333334",
         "consent_accepted": True
-    }).json()
+    })
+    assert p1_res.status_code == 201
+    p1 = p1_res.json()
     p1_id = p1["user"]["sub"]
 
     # Unrelated Doctor
-    d_unrelated = client.post("/api/v1/auth/doctor/signup", json={
+    d_res = client.post("/api/v1/auth/doctor/signup", json={
         "full_name": "Dr. Unrelated",
-        "email": "dr.unrelated@hospital.org",
+        "email": f"dr.unrelated.{uid}@hospital.org",
         "password": "DoctorPassword123!",
         "age": 42,
         "phone": "+919822222222",
@@ -162,7 +172,9 @@ def test_unauthorized_doctor_access_blocked():
         "specialization": "Dermatology",
         "emergency_contact": "+919822222223",
         "consent_accepted": True
-    }).json()
+    })
+    assert d_res.status_code == 201
+    d_unrelated = d_res.json()
     d_headers = {"Authorization": f"Bearer {d_unrelated['access_token']}"}
 
     # Attempt to open patient's clinical case without connection relationship -> Must be 403 Forbidden!

@@ -90,6 +90,18 @@ export class ApiService {
     return getApiBase();
   }
 
+  public static async getValidToken(): Promise<string | null> {
+    if (typeof window === "undefined") return null;
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (data?.session?.access_token) {
+        localStorage.setItem("medikiosk_token", data.session.access_token);
+        return data.session.access_token;
+      }
+    } catch {}
+    return localStorage.getItem("medikiosk_token");
+  }
+
   private static getToken(): string | null {
     if (typeof window !== "undefined") {
       return localStorage.getItem("medikiosk_token");
@@ -116,7 +128,7 @@ export class ApiService {
       throw new Error("No backend server configured. Autonomous Cloud Supabase mode active.");
     }
 
-    const token = this.getToken();
+    const token = (await this.getValidToken()) || this.getToken();
     const headers: Record<string, string> = {
       ...(options.headers as Record<string, string>),
     };
@@ -1032,7 +1044,58 @@ export class ApiService {
     try {
       return await this.request<any>(`/emergency/view/${token}`);
     } catch (err: any) {
-      // In standalone cloud / offline QR mode:
+      // Direct Supabase Cloud resolution for 24/7 access (works even when local laptop is offline)
+      try {
+        let patientId: string | null = null;
+        const { data: tokRow } = await supabase
+          .from("emergency_access_tokens")
+          .select("patient_id, is_active")
+          .eq("token", token)
+          .maybeSingle();
+
+        if (tokRow && tokRow.is_active && tokRow.patient_id) {
+          patientId = tokRow.patient_id;
+        }
+
+        if (!patientId && token && token.length >= 20) {
+          // Check if token matches prefix of user id
+          const clean = token.replace(/-/g, "").slice(0, 8);
+          const { data: profMatch } = await supabase
+            .from("profiles")
+            .select("id")
+            .ilike("id", `${clean}%`)
+            .maybeSingle();
+          if (profMatch?.id) patientId = profMatch.id;
+        }
+
+        if (patientId) {
+          const { data: profile } = await supabase.from("profiles").select("*").eq("id", patientId).maybeSingle();
+          const { data: pid } = await supabase.from("patient_identifiers").select("*").eq("profile_id", patientId).maybeSingle();
+          const { data: hist } = await supabase.from("medical_history").select("*").eq("patient_id", patientId);
+
+          const allergies = (hist || []).filter((h: any) => h.category === "allergy").map((h: any) => h.title);
+          const conditions = (hist || []).filter((h: any) => h.category === "condition").map((h: any) => h.title);
+          const medications = (hist || []).filter((h: any) => h.category === "medication").map((h: any) => h.title);
+
+          return {
+            status: "active",
+            full_name: profile?.full_name || "Emergency Patient",
+            medikiosk_id: pid?.medikiosk_id || "MK-000004",
+            blood_group: profile?.blood_group || "Unknown",
+            emergency_contact: profile?.emergency_contact || "Not registered",
+            phone: profile?.phone,
+            allergies,
+            conditions,
+            medications,
+            verified_at: new Date().toLocaleDateString(),
+            is_cloud_verified: true
+          };
+        }
+      } catch (cloudErr) {
+        console.warn("[MediKiosk] Direct Supabase cloud emergency lookup note:", cloudErr);
+      }
+
+      // Query param fallback for instant offline scan
       if (typeof window !== "undefined") {
         const searchParams = new URLSearchParams(window.location.search);
         const name = searchParams.get("name");
