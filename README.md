@@ -81,4 +81,4 @@ MediKiosk contains **ZERO dummy/mock data**. Accounts are registered directly th
 - `backend/`: FastAPI application, clinical question graph, rule engines, AI services, and adapters.
 - `frontend/`: Next.js 14+ App Router, accessible kiosk interface, physician verification portal.
 - `database/`: Supabase PostgreSQL schema and RLS policies.
-- `docs/`: In-depth architecture, API documentation, demo walk-throughs, and AYUSH specification.
+- `docs/`: In-depth architecture, API documentation, demo walk-throughs, AYUSH specification, and [Complete Technical Documentation](docs/COMPLETE_TECHNICAL_DOCUMENTATION.md).
